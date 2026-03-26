@@ -293,9 +293,10 @@ select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .preview-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 1rem;
   margin-bottom: 1.25rem;
+  flex-wrap: wrap;
 }
 
 .preview-header h2 { font-size: 1.1rem; }
@@ -303,7 +304,133 @@ select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 #grid-info {
   font-size: 0.85rem;
   color: var(--text-muted);
+  flex: 1;
 }
+
+.btn-save {
+  padding: 0.45rem 1.1rem;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-save:hover { background: var(--accent); color: white; }
+.btn-save.saved-flash {
+  background: var(--accent);
+  color: white;
+}
+
+/* ─── Saved Layouts ───────────────────────────────────── */
+.saved-section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.saved-section-header h2 { font-size: 1.1rem; }
+
+#saved-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.saved-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 1.1rem;
+}
+
+.saved-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.saved-card {
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  width: 240px;
+  flex-shrink: 0;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.saved-card.active-card {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(123, 94, 58, 0.2);
+}
+
+.saved-card img {
+  width: 100%;
+  display: block;
+  cursor: pointer;
+}
+.saved-card img:hover { opacity: 0.9; }
+
+.saved-card-footer {
+  padding: 0.6rem 0.75rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.saved-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.2rem 0.35rem;
+  cursor: text;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  background: transparent;
+}
+.saved-label:focus {
+  border-color: var(--accent);
+  background: white;
+}
+
+.saved-card-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-load {
+  flex: 1;
+  padding: 0.35rem 0;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: var(--accent);
+  color: white;
+  transition: background 0.15s;
+}
+.btn-load:hover { background: var(--accent-light); }
+
+.btn-delete-saved {
+  padding: 0.35rem 0.6rem;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+.btn-delete-saved:hover { border-color: #c0392b; color: #c0392b; }
 
 /* ─── Quilt Grid ──────────────────────────────────────── */
 .quilt-grid {
@@ -358,4 +485,479 @@ select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   main { padding: 1rem 0.75rem; }
   .options-row { flex-direction: column; gap: 0.6rem; }
   .toggle-row { flex-direction: column; align-items: flex-start; }
+}
+
+/* ─── Fabric Calculator ──────────────────────────────────── */
+.calc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.calc-header { margin-bottom: 0.25rem; }
+.calc-header h2 { font-size: 1.1rem; }
+.calc-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.calc-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  background: var(--accent-dim);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.calc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.calc-field label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.input-unit {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.input-unit input[type="number"] {
+  width: 72px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 0.9rem;
+  background: white;
+}
+.input-unit input[type="number"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.input-unit span {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* Calc result cards */
+#calc-results {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.calc-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.calc-card-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: white;
+  background: var(--accent);
+  padding: 0.4rem 0.85rem;
+}
+
+.calc-card-body {
+  padding: 0.75rem 0.85rem;
+}
+
+/* Tables */
+.calc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.calc-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.calc-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #f0ece7;
+  vertical-align: middle;
+}
+
+.calc-table tr:last-child td { border-bottom: none; }
+
+.calc-table tr.total-row td {
+  font-weight: 700;
+  background: var(--accent-dim);
+}
+
+.calc-thumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.no-fabric-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: 2px dashed var(--border);
+  background: #f5f0eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.yardage-cell {
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.calc-note-cell {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.calc-inch-input {
+  width: 60px;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background: white;
+}
+.calc-inch-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.calc-disclaimer {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 0.5rem 0.85rem 0.75rem;
+  font-style: italic;
+}
+
+/* ─── Multiplier Slider ──────────────────────────────────── */
+.mult-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+#mult-slider {
+  width: 220px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.mult-end {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  min-width: 24px;
+}
+
+#mult-label {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* ─── Border & Binding Controls ─────────────────────────── */
+.bb-group {
+  border-top: 1px dashed var(--border);
+  padding-top: 1.25rem;
+  gap: 1rem;
+}
+
+.bb-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  background: var(--accent-dim);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.bb-sub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.bb-sub-hint {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.bb-empty-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.btn-add-border {
+  padding: 0.3rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px dashed var(--accent);
+  background: white;
+  color: var(--accent);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-add-border:hover { background: var(--accent); color: white; border-style: solid; }
+
+/* ─── Border Layer Cards ─────────────────────────────────── */
+.border-layer-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.border-layer-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.border-layer-num {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 52px;
+}
+
+.border-layer-slider {
+  flex: 1;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.border-layer-val {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  min-width: 42px;
+}
+
+.btn-remove-border {
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  line-height: 1;
+}
+.btn-remove-border:hover { border-color: #c0392b; color: #c0392b; }
+
+.bb-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-top: 0.5rem;
+}
+
+.bb-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.bb-row-stack {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.bb-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 70px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Image Picker Row ───────────────────────────────────── */
+.picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-height: 100px;
+  overflow-y: auto;
+  padding: 4px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 200px;
+  max-width: 100%;
+}
+
+.picker-empty {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 4px;
+}
+
+.picker-thumb {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.picker-thumb:hover { border-color: var(--accent-light); transform: scale(1.08); }
+.picker-thumb.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(123, 94, 58, 0.3);
+}
+
+.btn-upload-sm {
+  display: inline-block;
+  padding: 0.3rem 0.75rem;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: white;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-upload-sm:hover { border-color: var(--accent); background: var(--accent-dim); }
+
+/* ─── Type Tabs (solid / gradient / pattern) ─────────────── */
+.type-tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.type-tab {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: white;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  border-right: 1px solid var(--border);
+}
+.type-tab:last-child { border-right: none; }
+.type-tab:hover { background: var(--accent-dim); color: var(--accent); }
+.type-tab.active {
+  background: var(--accent);
+  color: white;
+}
+
+/* ─── Gradient Stops ────────────────────────────────────── */
+.grad-stops-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.grad-stop-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.grad-stop {
+  width: 36px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  padding: 1px;
+}
+
+.btn-add-stop {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.btn-add-stop:hover { background: var(--accent); color: white; }
+
+.btn-remove-stop {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: white;
+  color: #c0392b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.btn-remove-stop:hover { background: #c0392b; color: white; }
+
+/* ─── Preview Wrapper ────────────────────────────────────── */
+#preview-wrapper { overflow-x: auto; }
+#quilt-frame     { display: block; width: fit-content; }
+
+/* Dynamic border/binding layers injected by JS */
+.dyn-border-layer,
+.dyn-binding-layer {
+  display: block;
+  width: fit-content;
 }

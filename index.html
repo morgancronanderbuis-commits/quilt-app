@@ -46,14 +46,11 @@
 
       <div class="control-group">
         <label>Image Set</label>
-        <div class="toggle-row">
-          <span id="set-count-label">Using 0 images (1×)</span>
-          <div class="toggle-group">
-            <button class="multiplier-btn active" data-mult="1">1×</button>
-            <button class="multiplier-btn" data-mult="2">2× (duplicate)</button>
-            <button class="multiplier-btn" data-mult="3">3×</button>
-            <button class="multiplier-btn" data-mult="4">4×</button>
-          </div>
+        <div class="mult-row">
+          <span class="mult-end">1×</span>
+          <input type="range" id="mult-slider" min="1" max="20" value="1" step="1" />
+          <span class="mult-end">20×</span>
+          <span id="mult-label">1× — 0 images</span>
         </div>
       </div>
 
@@ -82,6 +79,86 @@
         <button id="checker-btn" class="btn-checker" title="Sort fabrics by brightness and alternate light/dark in a checkerboard pattern">Checkerboard</button>
         <button id="hue-diag-btn" class="btn-hue-diag" title="Sort fabrics by color hue and arrange them in diagonal bands (red → orange → yellow → green → blue → purple)">Hue Diagonal</button>
       </div>
+
+      <!-- ── Border & Binding ── -->
+      <div class="control-group bb-group">
+        <label>Border &amp; Binding</label>
+
+        <!-- BORDERS (stackable px-width strip layers) -->
+        <div class="bb-sub">
+          <div class="bb-sub-header">
+            <div>
+              <strong>Borders</strong>
+              <span class="bb-sub-hint">Fabric strips — inside → out</span>
+            </div>
+            <button id="add-border-btn" class="btn-add-border">+ Add Layer</button>
+          </div>
+          <div id="border-layers-list">
+            <p class="bb-empty-hint" id="border-empty-hint">No border layers yet. Click "+ Add Layer" to add one.</p>
+          </div>
+        </div>
+
+        <!-- BINDING -->
+        <div class="bb-sub">
+          <label class="checkbox-label">
+            <input type="checkbox" id="binding-enabled" />
+            <strong>Binding</strong> — decorative edge strip
+          </label>
+          <div id="binding-opts" class="bb-opts" hidden>
+            <div class="bb-row">
+              <span class="bb-label">Thickness</span>
+              <input type="range" id="binding-width-range" min="6" max="42" value="14" />
+              <span id="binding-width-display">14 px</span>
+            </div>
+            <div class="bb-row">
+              <span class="bb-label">Style</span>
+              <div class="type-tabs" id="binding-type-tabs">
+                <button class="type-tab active" data-type="solid">Solid</button>
+                <button class="type-tab" data-type="gradient">Gradient</button>
+                <button class="type-tab" data-type="pattern">Pattern</button>
+              </div>
+            </div>
+
+            <!-- Solid panel -->
+            <div id="binding-solid-panel">
+              <div class="bb-row">
+                <span class="bb-label">Color</span>
+                <input type="color" id="binding-solid-color" value="#7b5e3a" />
+              </div>
+            </div>
+
+            <!-- Gradient panel -->
+            <div id="binding-gradient-panel" hidden>
+              <div class="bb-row">
+                <span class="bb-label">Colors</span>
+                <div id="grad-stops-row" class="grad-stops-row">
+                  <!-- stops injected by JS -->
+                  <button id="add-grad-stop" class="btn-add-stop" title="Add color stop">+</button>
+                </div>
+              </div>
+              <div class="bb-row">
+                <span class="bb-label">Direction</span>
+                <select id="binding-grad-dir">
+                  <option value="to right">→ Horizontal</option>
+                  <option value="to bottom">↓ Vertical</option>
+                  <option value="135deg" selected>↘ Diagonal</option>
+                  <option value="45deg">↗ Diagonal (rev)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Pattern panel -->
+            <div id="binding-pattern-panel" hidden>
+              <div class="bb-row bb-row-stack">
+                <span class="bb-label">Fabric</span>
+                <div class="picker-row" id="binding-picker"><em class="picker-empty">Load images first</em></div>
+                <label class="btn-upload-sm" for="binding-upload-input">+ Upload New</label>
+                <input type="file" id="binding-upload-input" accept="image/*" hidden />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Grid Preview -->
@@ -89,8 +166,58 @@
       <div class="preview-header">
         <h2>Quilt Preview</h2>
         <span id="grid-info"></span>
+        <button id="save-btn" class="btn-save">Save Layout</button>
       </div>
-      <div id="quilt-grid" class="quilt-grid"></div>
+      <div id="preview-wrapper">
+        <!-- #quilt-frame contents are rebuilt by applyBorderBinding() -->
+        <div id="quilt-frame">
+          <div id="quilt-grid" class="quilt-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Fabric Calculator -->
+    <section class="calc-section" id="calc-section" style="display:none">
+      <div class="calc-header">
+        <h2>Fabric Calculator</h2>
+        <span class="calc-subtitle">Estimates assume straight-grain cuts and standard WOF</span>
+      </div>
+
+      <div class="calc-settings">
+        <div class="calc-field">
+          <label for="calc-block-size">Finished block size</label>
+          <div class="input-unit">
+            <input type="number" id="calc-block-size" value="5" min="0.5" max="24" step="0.5" />
+            <span>in</span>
+          </div>
+        </div>
+        <div class="calc-field">
+          <label for="calc-seam">Seam allowance</label>
+          <div class="input-unit">
+            <input type="number" id="calc-seam" value="0.5" min="0" max="1" step="0.25" />
+            <span>in (each side)</span>
+          </div>
+        </div>
+        <div class="calc-field">
+          <label for="calc-wof">Fabric width (WOF)</label>
+          <div class="input-unit">
+            <input type="number" id="calc-wof" value="42" min="36" max="60" step="1" />
+            <span>in</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="calc-results"></div>
+    </section>
+
+    <!-- Saved Layouts -->
+    <section class="saved-section" id="saved-section" style="display:none">
+      <div class="saved-section-header">
+        <h2>Saved Layouts <span id="saved-count"></span></h2>
+        <button id="clear-saved-btn" class="btn-secondary">Clear All</button>
+      </div>
+      <p class="saved-hint">Click a label to rename it. Drag-and-drop reordering is preserved when you save.</p>
+      <div id="saved-grid" class="saved-grid"></div>
     </section>
   </main>
 

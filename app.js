@@ -1,9 +1,31 @@
 // ─── State ────────────────────────────────────────────────
 const state = {
-  images: [],       // Array of { name, dataUrl }
+  images: [],         // Array of { name, dataUrl, color, phash }
   multiplier: 1,
   cols: 0,
   rows: 0,
+  currentPool: [],
+  savedLayouts: [],
+  saveCounter: 0,
+  activeCardId: null,
+  lastCellPx: 60,
+  borders: [],       // Array of { widthPx, image: {name,dataUrl}|null } — innermost first
+  calc: {
+    blockSizeIn:    5,    // finished block size in inches
+    seamAllowance:  0.5,  // total seam allowance per side (standard ¼" = 0.5" cut-to-finished)
+    fabricWidthIn:  42,   // WOF (width of fabric)
+    borderInches:   [],   // one entry per borders layer (user sets actual inch width here)
+    bindingStripIn: 2.5,  // strip width for binding
+  },
+  binding: {
+    enabled: false,
+    widthPx: 14,
+    type: 'solid',     // 'solid' | 'gradient' | 'pattern'
+    solidColor: '#7b5e3a',
+    gradientColors: ['#7b5e3a', '#d4a574'],
+    gradientDir: '135deg',
+    image: null,
+  },
 };
 
 // ─── DOM References ────────────────────────────────────────
@@ -16,6 +38,23 @@ const previewSection = document.getElementById('preview-section');
 const dimensionSelect= document.getElementById('dimension-select');
 const dimLabel       = document.getElementById('dim-label');
 const setCountLabel  = document.getElementById('set-count-label');
+// Border & Binding DOM refs
+const addBorderBtn     = document.getElementById('add-border-btn');
+const borderLayersList = document.getElementById('border-layers-list');
+const bindingEnabledCk = document.getElementById('binding-enabled');
+const bindingOpts      = document.getElementById('binding-opts');
+const bindingWidthRng  = document.getElementById('binding-width-range');
+const bindingWidthDisp = document.getElementById('binding-width-display');
+const bindingColorIn   = document.getElementById('binding-solid-color');
+const bindingGradDir   = document.getElementById('binding-grad-dir');
+const gradStopsRow     = document.getElementById('grad-stops-row');
+const addGradStopBtn   = document.getElementById('add-grad-stop');
+const bindingUploadIn  = document.getElementById('binding-upload-input');
+const saveBtn          = document.getElementById('save-btn');
+const savedSection   = document.getElementById('saved-section');
+const savedGridEl    = document.getElementById('saved-grid');
+const savedCountEl   = document.getElementById('saved-count');
+const clearSavedBtn  = document.getElementById('clear-saved-btn');
 const generateBtn    = document.getElementById('generate-btn');
 const shuffleBtn     = document.getElementById('shuffle-btn');
 const optimizeBtn    = document.getElementById('optimize-btn');
@@ -25,7 +64,8 @@ const gridInfo       = document.getElementById('grid-info');
 const shuffleCheck   = document.getElementById('shuffle-check');
 const seamsCheck     = document.getElementById('seams-check');
 const squareCheck    = document.getElementById('square-check');
-const multiBtns      = document.querySelectorAll('.multiplier-btn');
+const multSlider     = document.getElementById('mult-slider');
+const multLabel      = document.getElementById('mult-label');
 
 // ─── Upload Handling ───────────────────────────────────────
 // Only trigger fileInput.click() when clicking the zone itself, not the label
@@ -81,6 +121,7 @@ function onImagesUpdated() {
     controls.style.display = 'flex';
     rebuildDimensionOptions();
     updateSetCountLabel();
+    buildImagePickers(); // keep border/binding pickers in sync
   } else {
     controls.style.display = 'none';
   }
@@ -136,25 +177,22 @@ function updateDimState() {
   dimLabel.textContent = `= ${total} blocks total`;
 }
 
-// ─── Multiplier / Set Logic ────────────────────────────────
-multiBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    multiBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    state.multiplier = parseInt(btn.dataset.mult, 10);
-    rebuildDimensionOptions();
-    updateSetCountLabel();
-  });
+// ─── Multiplier Slider ─────────────────────────────────────
+multSlider.addEventListener('input', () => {
+  state.multiplier = parseInt(multSlider.value, 10);
+  updateMultLabel();
+  rebuildDimensionOptions();
 });
 
-function updateSetCountLabel() {
-  const base = state.images.length;
+function updateMultLabel() {
+  const base  = state.images.length;
   const total = base * state.multiplier;
-  const label = state.multiplier === 1
-    ? `Using ${total} images (1×)`
-    : `${base} images × ${state.multiplier} = ${total} blocks`;
-  setCountLabel.textContent = label;
+  multLabel.textContent = state.multiplier === 1
+    ? `1× — ${total} image${total !== 1 ? 's' : ''}`
+    : `${state.multiplier}× — ${total} blocks`;
 }
+
+function updateSetCountLabel() { updateMultLabel(); }
 
 // ─── Generate ──────────────────────────────────────────────
 generateBtn.addEventListener('click', generateLayout);
@@ -189,16 +227,35 @@ function generateLayout() {
   renderGrid(pool, cols, rows);
 }
 
-// Track the live pool so drag-swaps can mutate it
-state.currentPool = [];
+// ─── Save / Load / Delete ──────────────────────────────────
+saveBtn.addEventListener('click', saveCurrentLayout);
+clearSavedBtn.addEventListener('click', () => {
+  state.savedLayouts = [];
+  state.activeCardId = null;
+  renderSavedPanel();
+});
+
+/** Cell size that fits the quilt + all borders + binding within the viewport. */
+function computeCellPx(cols, rows) {
+  const borderPad = state.borders.reduce((s, b) => s + b.widthPx, 0) * 2;
+  const bindPad   = state.binding.enabled ? state.binding.widthPx * 2 : 0;
+  const totalPad  = borderPad + bindPad;
+  const seamGap   = seamsCheck.checked ? 3 : 0;
+
+  const availW = Math.max(window.innerWidth  -  64, 320) - totalPad - seamGap * (cols + 1);
+  const availH = Math.max(window.innerHeight - 400, 200) - totalPad - seamGap * (rows + 1);
+
+  return Math.max(Math.min(Math.floor(availW / cols), Math.floor(availH / rows), 100), 8);
+}
 
 function renderGrid(pool, cols, rows) {
   state.currentPool = [...pool];
+  state.cols = cols;
+  state.rows = rows;
   quiltGrid.innerHTML = '';
 
-  // Fixed pixel columns — predictable size, no stretching
-  const seamGap = seamsCheck.checked ? 3 : 0;
-  const maxCellPx = Math.min(Math.floor((window.innerWidth - 80) / cols) - seamGap, 120);
+  const maxCellPx = computeCellPx(cols, rows);
+  state.lastCellPx = maxCellPx;
   quiltGrid.style.gridTemplateColumns = `repeat(${cols}, ${maxCellPx}px)`;
   quiltGrid.style.width = 'fit-content';
   quiltGrid.style.maxWidth = '';
@@ -224,6 +281,8 @@ function renderGrid(pool, cols, rows) {
   });
 
   addDragSwap();
+  applyBorderBinding();
+  renderCalculator();
 
   gridInfo.textContent = `${cols} columns × ${rows} rows — ${pool.length} blocks`;
   previewSection.style.display = 'block';
@@ -234,7 +293,7 @@ function renderGrid(pool, cols, rows) {
 function addDragSwap() {
   let dragSrcIndex = null;
 
-  quiltGrid.querySelectorAll('.quilt-cell').forEach(cell => {
+  quiltGrid.querySelectorAll('.quilt-cell[data-index]').forEach(cell => {
     cell.addEventListener('dragstart', e => {
       dragSrcIndex = parseInt(cell.dataset.index, 10);
       cell.classList.add('dragging');
@@ -280,9 +339,458 @@ function addDragSwap() {
   });
 }
 
+// ─── Border Layers ─────────────────────────────────────────
+addBorderBtn.addEventListener('click', () => {
+  state.borders.push({ widthPx: 30, image: null });
+  state.calc.borderInches.push(3); // default 3" for new layer
+  renderBorderLayersUI();
+  reRenderIfActive();
+  renderCalculator();
+});
+
+function renderBorderLayersUI() {
+  const emptyHint = document.getElementById('border-empty-hint');
+  // Remove existing layer cards (keep the empty hint)
+  borderLayersList.querySelectorAll('.border-layer-card').forEach(c => c.remove());
+
+  if (!state.borders.length) {
+    if (emptyHint) emptyHint.style.display = '';
+    return;
+  }
+  if (emptyHint) emptyHint.style.display = 'none';
+
+  state.borders.forEach((layer, idx) => {
+    const card = document.createElement('div');
+    card.className = 'border-layer-card';
+    card.dataset.idx = idx;
+
+    // Header: label + width slider + remove
+    const header = document.createElement('div');
+    header.className = 'border-layer-header';
+
+    const numLabel = document.createElement('span');
+    numLabel.className = 'border-layer-num';
+    numLabel.textContent = `Layer ${idx + 1}`;
+
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.className = 'border-layer-slider';
+    slider.min = 4; slider.max = 200; slider.value = layer.widthPx;
+
+    const valSpan = document.createElement('span');
+    valSpan.className = 'border-layer-val';
+    valSpan.textContent = `${layer.widthPx} px`;
+
+    slider.addEventListener('input', () => {
+      layer.widthPx = parseInt(slider.value, 10);
+      valSpan.textContent = `${layer.widthPx} px`;
+      reRenderIfActive();
+    });
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-remove-border';
+    removeBtn.textContent = '✕ Remove';
+    removeBtn.addEventListener('click', () => {
+      state.borders.splice(idx, 1);
+      state.calc.borderInches.splice(idx, 1);
+      renderBorderLayersUI();
+      buildImagePickers();
+      reRenderIfActive();
+      renderCalculator();
+    });
+
+    header.append(numLabel, slider, valSpan, removeBtn);
+
+    // Fabric picker row
+    const pickerWrap = document.createElement('div');
+    pickerWrap.className = 'bb-row bb-row-stack';
+
+    const pickerLabel = document.createElement('span');
+    pickerLabel.className = 'bb-label';
+    pickerLabel.textContent = 'Fabric';
+
+    const pickerRow = document.createElement('div');
+    pickerRow.className = 'picker-row';
+    pickerRow.id = `border-picker-${idx}`;
+    pickerRow.innerHTML = '<em class="picker-empty">Load images first</em>';
+
+    const uploadLabel = document.createElement('label');
+    uploadLabel.className = 'btn-upload-sm';
+    uploadLabel.textContent = '+ Upload New';
+    const uploadId = `border-upload-${idx}`;
+    uploadLabel.htmlFor = uploadId;
+
+    const uploadInput = document.createElement('input');
+    uploadInput.type = 'file';
+    uploadInput.id = uploadId;
+    uploadInput.accept = 'image/*';
+    uploadInput.hidden = true;
+    uploadInput.addEventListener('change', () => {
+      const file = uploadInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        layer.image = { name: file.name, dataUrl: e.target.result };
+        buildBorderPickerAt(idx);
+        reRenderIfActive();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    pickerWrap.append(pickerLabel, pickerRow, uploadLabel, uploadInput);
+    card.append(header, pickerWrap);
+    borderLayersList.appendChild(card);
+
+    // Populate the picker
+    buildBorderPickerAt(idx);
+  });
+}
+
+function buildBorderPickerAt(idx) {
+  const layer = state.borders[idx];
+  if (!layer) return;
+  buildImagePicker(`border-picker-${idx}`, img => {
+    layer.image = img;
+    reRenderIfActive();
+  }, layer.image?.dataUrl);
+}
+
+bindingEnabledCk.addEventListener('change', () => {
+  state.binding.enabled = bindingEnabledCk.checked;
+  bindingOpts.hidden = !bindingEnabledCk.checked;
+  if (state.currentPool.length) applyBorderBinding();
+});
+bindingWidthRng.addEventListener('input', () => {
+  state.binding.widthPx = parseInt(bindingWidthRng.value, 10);
+  bindingWidthDisp.textContent = `${bindingWidthRng.value} px`;
+  if (state.currentPool.length) applyBorderBinding();
+});
+bindingColorIn.addEventListener('input', () => {
+  state.binding.solidColor = bindingColorIn.value;
+  if (state.currentPool.length) applyBorderBinding();
+});
+bindingGradDir.addEventListener('change', () => {
+  state.binding.gradientDir = bindingGradDir.value;
+  if (state.currentPool.length) applyBorderBinding();
+});
+addGradStopBtn.addEventListener('click', () => {
+  if (state.binding.gradientColors.length >= 5) return;
+  state.binding.gradientColors.push('#c8a96e');
+  renderGradientStops();
+  if (state.currentPool.length) applyBorderBinding();
+});
+bindingUploadIn.addEventListener('change', () => {
+  const file = bindingUploadIn.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    state.binding.image = { name: file.name, dataUrl: e.target.result };
+    buildBindingPicker();
+    if (state.currentPool.length) applyBorderBinding();
+  };
+  reader.readAsDataURL(file);
+});
+
+// Binding type tab switching
+document.querySelectorAll('#binding-type-tabs .type-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#binding-type-tabs .type-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.binding.type = btn.dataset.type;
+    document.getElementById('binding-solid-panel').hidden   = state.binding.type !== 'solid';
+    document.getElementById('binding-gradient-panel').hidden = state.binding.type !== 'gradient';
+    document.getElementById('binding-pattern-panel').hidden  = state.binding.type !== 'pattern';
+    if (state.currentPool.length) applyBorderBinding();
+  });
+});
+
+// ─── Border & Binding — dynamic nested wrappers ────────────
+function applyBorderBinding() {
+  const quiltGridEl = document.getElementById('quilt-grid');
+  const frame       = document.getElementById('quilt-frame');
+
+  // Detach quilt-grid, clear frame
+  frame.innerHTML = '';
+
+  // Build layers from inside → out: borders then binding
+  let inner = quiltGridEl;
+
+  // Apply border layers innermost first (index 0 = innermost)
+  for (const b of state.borders) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dyn-border-layer';
+    wrap.style.padding = `${b.widthPx}px`;
+    if (b.image) {
+      // Tile the fabric at roughly square tiles matching the strip width
+      const tile = Math.max(b.widthPx * 2, 40);
+      wrap.style.backgroundImage  = `url("${b.image.dataUrl}")`;
+      wrap.style.backgroundSize   = `${tile}px ${tile}px`;
+      wrap.style.backgroundRepeat = 'repeat';
+    } else {
+      // Placeholder hatch pattern when no fabric selected yet
+      wrap.style.background =
+        'repeating-linear-gradient(45deg,#e8ddd0,#e8ddd0 6px,#d9cfc4 6px,#d9cfc4 12px)';
+    }
+    wrap.appendChild(inner);
+    inner = wrap;
+  }
+
+  // Apply binding (outermost)
+  if (state.binding.enabled) {
+    const w = state.binding.widthPx;
+    const wrap = document.createElement('div');
+    wrap.className = 'dyn-binding-layer';
+    wrap.style.padding = `${w}px`;
+    const { type, solidColor, gradientColors, gradientDir, image } = state.binding;
+    if (type === 'solid') {
+      wrap.style.background = solidColor;
+    } else if (type === 'gradient') {
+      wrap.style.background = `linear-gradient(${gradientDir}, ${gradientColors.join(', ')})`;
+    } else if (type === 'pattern' && image) {
+      wrap.style.backgroundImage  = `url("${image.dataUrl}")`;
+      wrap.style.backgroundSize   = `${w * 3}px ${w * 3}px`;
+      wrap.style.backgroundRepeat = 'repeat';
+    }
+    wrap.appendChild(inner);
+    inner = wrap;
+  }
+
+  frame.appendChild(inner);
+}
+
+// ─── Image Pickers ─────────────────────────────────────────
+function buildImagePicker(containerId, onSelect, currentDataUrl) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!state.images.length) {
+    container.innerHTML = '<em class="picker-empty">Load images first</em>';
+    return;
+  }
+
+  // Optionally include a dedicated uploaded image that isn't in state.images
+  const items = [...state.images];
+  if (currentDataUrl && !items.find(i => i.dataUrl === currentDataUrl)) {
+    items.unshift({ name: 'uploaded', dataUrl: currentDataUrl });
+  }
+
+  items.forEach(img => {
+    const thumb = document.createElement('img');
+    thumb.src = img.dataUrl;
+    thumb.className = 'picker-thumb' + (img.dataUrl === currentDataUrl ? ' selected' : '');
+    thumb.title = img.name;
+    thumb.addEventListener('click', () => {
+      container.querySelectorAll('.picker-thumb').forEach(t => t.classList.remove('selected'));
+      thumb.classList.add('selected');
+      onSelect(img);
+    });
+    container.appendChild(thumb);
+  });
+}
+
+function buildBindingPicker() {
+  buildImagePicker('binding-picker', img => {
+    state.binding.image = img;
+    reRenderIfActive();
+  }, state.binding.image?.dataUrl);
+}
+
+function buildImagePickers() {
+  // Rebuild all dynamic border pickers
+  state.borders.forEach((_, idx) => buildBorderPickerAt(idx));
+  buildBindingPicker();
+}
+
+// ─── Gradient Stops ────────────────────────────────────────
+function renderGradientStops() {
+  // Remove all existing stop wrappers (keep the + button)
+  gradStopsRow.querySelectorAll('.grad-stop-wrap').forEach(el => el.remove());
+
+  state.binding.gradientColors.forEach((color, idx) => {
+    const wrap = document.createElement('span');
+    wrap.className = 'grad-stop-wrap';
+
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.className = 'grad-stop';
+    input.value = color;
+    input.addEventListener('input', () => {
+      state.binding.gradientColors[idx] = input.value;
+      if (state.currentPool.length) applyBorderBinding();
+    });
+    wrap.appendChild(input);
+
+    if (state.binding.gradientColors.length > 2) {
+      const rm = document.createElement('button');
+      rm.className = 'btn-remove-stop';
+      rm.textContent = '×';
+      rm.title = 'Remove stop';
+      rm.addEventListener('click', () => {
+        state.binding.gradientColors.splice(idx, 1);
+        renderGradientStops();
+        if (state.currentPool.length) applyBorderBinding();
+      });
+      wrap.appendChild(rm);
+    }
+
+    gradStopsRow.insertBefore(wrap, addGradStopBtn);
+  });
+
+  addGradStopBtn.style.display = state.binding.gradientColors.length >= 5 ? 'none' : '';
+}
+
+// Initialize gradient stops UI on load
+renderGradientStops();
+
 function hidePreview() {
   previewSection.style.display = 'none';
   quiltGrid.innerHTML = '';
+}
+
+// ─── Thumbnail ─────────────────────────────────────────────
+async function generateThumbnail(pool, cols, rows) {
+  const THUMB_W = 236;
+  const gap = 1;
+  const cellSize = Math.max(Math.floor((THUMB_W - gap * (cols + 1)) / cols), 4);
+  const w = cellSize * cols + gap * (cols + 1);
+  const h = cellSize * rows + gap * (rows + 1);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+
+  // Seam background
+  ctx.fillStyle = '#7b5e3a';
+  ctx.fillRect(0, 0, w, h);
+
+  // Load all images in parallel then draw
+  const imgEls = await Promise.all(pool.map(item => new Promise(res => {
+    const el = new Image();
+    el.onload = () => res(el);
+    el.onerror = () => res(null);
+    el.src = item.dataUrl;
+  })));
+
+  imgEls.forEach((el, i) => {
+    const r = Math.floor(i / cols), c = i % cols;
+    const x = gap + c * (cellSize + gap);
+    const y = gap + r * (cellSize + gap);
+    if (el) {
+      // Square-crop: draw the center square of the source image
+      const s = Math.min(el.naturalWidth, el.naturalHeight);
+      const sx = (el.naturalWidth - s) / 2;
+      const sy = (el.naturalHeight - s) / 2;
+      ctx.drawImage(el, sx, sy, s, s, x, y, cellSize, cellSize);
+    } else {
+      ctx.fillStyle = '#ccc';
+      ctx.fillRect(x, y, cellSize, cellSize);
+    }
+  });
+
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+// ─── Save Layout ───────────────────────────────────────────
+async function saveCurrentLayout() {
+  if (!state.currentPool.length) return;
+
+  const { cols, rows } = state;
+  const pool = [...state.currentPool]; // snapshot current order
+
+  // Auto-label: extract mode from grid info + counter
+  state.saveCounter++;
+  const infoText = gridInfo.textContent;
+  const modePart = infoText.includes('—')
+    ? infoText.split('—').pop().trim()
+    : `${cols}×${rows}`;
+  const label = `${cols}×${rows} · ${modePart} #${state.saveCounter}`;
+
+  const thumbnail = await generateThumbnail(pool, cols, rows);
+  const id = Date.now();
+
+  state.savedLayouts.push({ id, label, pool, cols, rows, thumbnail });
+  state.activeCardId = id;
+
+  renderSavedPanel();
+
+  // Brief button flash
+  saveBtn.textContent = 'Saved!';
+  saveBtn.classList.add('saved-flash');
+  setTimeout(() => {
+    saveBtn.textContent = 'Save Layout';
+    saveBtn.classList.remove('saved-flash');
+  }, 1200);
+}
+
+// ─── Saved Panel ───────────────────────────────────────────
+function renderSavedPanel() {
+  const layouts = state.savedLayouts;
+  savedSection.style.display = layouts.length ? 'block' : 'none';
+  savedCountEl.textContent = layouts.length ? `(${layouts.length})` : '';
+  savedGridEl.innerHTML = '';
+
+  layouts.forEach(layout => {
+    const card = document.createElement('div');
+    card.className = 'saved-card' + (layout.id === state.activeCardId ? ' active-card' : '');
+    card.dataset.id = layout.id;
+
+    // Thumbnail
+    const thumb = document.createElement('img');
+    thumb.src = layout.thumbnail;
+    thumb.alt = layout.label;
+    thumb.title = 'Click to load';
+    thumb.addEventListener('click', () => loadSavedLayout(layout.id));
+
+    // Footer
+    const footer = document.createElement('div');
+    footer.className = 'saved-card-footer';
+
+    // Editable label
+    const labelEl = document.createElement('input');
+    labelEl.type = 'text';
+    labelEl.className = 'saved-label';
+    labelEl.value = layout.label;
+    labelEl.title = 'Click to rename';
+    labelEl.addEventListener('change', () => {
+      layout.label = labelEl.value;
+    });
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'saved-card-actions';
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'btn-load';
+    loadBtn.textContent = 'Load';
+    loadBtn.addEventListener('click', () => loadSavedLayout(layout.id));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-delete-saved';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => {
+      state.savedLayouts = state.savedLayouts.filter(l => l.id !== layout.id);
+      if (state.activeCardId === layout.id) state.activeCardId = null;
+      renderSavedPanel();
+    });
+
+    actions.append(loadBtn, delBtn);
+    footer.append(labelEl, actions);
+    card.append(thumb, footer);
+    savedGridEl.appendChild(card);
+  });
+}
+
+// ─── Load Saved Layout ─────────────────────────────────────
+function loadSavedLayout(id) {
+  const layout = state.savedLayouts.find(l => l.id === id);
+  if (!layout) return;
+  state.activeCardId = id;
+  renderGrid(layout.pool, layout.cols, layout.rows);
+  gridInfo.textContent = layout.label + '  (loaded)';
+  renderSavedPanel(); // refresh active-card highlight
+  previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ─── Color Extraction ──────────────────────────────────────
@@ -546,6 +1054,306 @@ function checkerLayout() {
   gridInfo.textContent += '  —  checkerboard (light/dark)';
 }
 
+// ─── Fabric Calculator ─────────────────────────────────────
+
+// Wire up settings inputs
+document.getElementById('calc-block-size').addEventListener('input', e => {
+  state.calc.blockSizeIn = parseFloat(e.target.value) || 5;
+  renderCalculator();
+});
+document.getElementById('calc-seam').addEventListener('input', e => {
+  state.calc.seamAllowance = parseFloat(e.target.value) || 0.5;
+  renderCalculator();
+});
+document.getElementById('calc-wof').addEventListener('input', e => {
+  state.calc.fabricWidthIn = parseFloat(e.target.value) || 42;
+  renderCalculator();
+});
+
+/** Round up to nearest ⅛ yard and format as a fraction string. */
+function formatYards(yards) {
+  if (yards <= 0) return '—';
+  const eighths = Math.ceil(yards * 8);
+  const whole = Math.floor(eighths / 8);
+  const rem   = eighths % 8;
+  const fracs = ['', '⅛', '¼', '⅜', '½', '⅝', '¾', '⅞'];
+  if (whole === 0) return `${fracs[rem]} yd`;
+  if (rem   === 0) return `${whole} yd`;
+  return `${whole}${fracs[rem]} yd`;
+}
+
+/** Yardage needed to cut `count` squares of `cutSize` inches from WOF fabric. */
+function blockYardsNeeded(count, cutSize, wof) {
+  const perStrip = Math.max(Math.floor(wof / cutSize), 1);
+  const strips   = Math.ceil(count / perStrip);
+  return (strips * cutSize) / 36; // convert inches → yards
+}
+
+/** Yardage for one border strip layer.
+ *  @param bIn       border width in inches (finished)
+ *  @param qW, qH   quilt width/height at this layer's inner edge (inches)
+ *  @param sa        seam allowance
+ *  @param wof       fabric width */
+function borderYardsNeeded(bIn, qW, qH, sa, wof) {
+  const cutWidth = bIn + sa * 2; // cut width of the strip
+  // Total linear inches needed: top+bottom strips at full outer width + left+right at quilt height
+  // + 20" buffer for corners/joins
+  const outerW = qW + bIn * 2;
+  const linearIn = 2 * outerW + 2 * qH + 20;
+  const strips = Math.ceil(linearIn / (wof - sa));
+  return (strips * cutWidth) / 36;
+}
+
+/** Yardage for binding. Strips are cut at `stripIn` wide across the WOF. */
+function bindingYardsNeeded(perimeterIn, stripIn, wof) {
+  const strips = Math.ceil((perimeterIn + 12) / wof); // +12" for joins/corners
+  return (strips * stripIn) / 36;
+}
+
+/** Make a result card DOM element. */
+function makeCalcCard(title) {
+  const card = document.createElement('div');
+  card.className = 'calc-card';
+  const titleEl = document.createElement('div');
+  titleEl.className = 'calc-card-title';
+  titleEl.textContent = title;
+  card.appendChild(titleEl);
+  return card;
+}
+
+/** Build a <table> with optional header row. Returns { table, tbody }. */
+function makeCalcTable(headers) {
+  const table = document.createElement('table');
+  table.className = 'calc-table';
+  if (headers.length) {
+    const thead = table.createTHead();
+    const hr = thead.insertRow();
+    headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
+  }
+  const tbody = document.createElement('tbody');
+  table.appendChild(tbody);
+  return { table, tbody };
+}
+
+function syncCalcBorderInches() {
+  const c = state.calc;
+  while (c.borderInches.length < state.borders.length) c.borderInches.push(3);
+  c.borderInches.length = state.borders.length;
+}
+
+function renderCalculator() {
+  const section = document.getElementById('calc-section');
+  if (!state.currentPool.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  syncCalcBorderInches();
+
+  const c   = state.calc;
+  const { cols, rows, borders, binding, currentPool } = state;
+  const { blockSizeIn, seamAllowance: sa, fabricWidthIn: wof } = c;
+  const cutBlockSize = blockSizeIn + sa * 2;
+
+  // ── Quilt dimensions ──────────────────────────────────────
+  let qW = cols * blockSizeIn;
+  let qH = rows * blockSizeIn;
+  const blockQW = qW, blockQH = qH;
+
+  const borderInchesSnapshot = c.borderInches.map((v, i) => parseFloat(v) || 0);
+  for (const bIn of borderInchesSnapshot) { qW += bIn * 2; qH += bIn * 2; }
+
+  const results = document.getElementById('calc-results');
+  results.innerHTML = '';
+
+  // ── Card: Quilt Dimensions ─────────────────────────────────
+  const dimCard = makeCalcCard('Quilt Dimensions (finished)');
+  const { table: dimT, tbody: dimB } = makeCalcTable(['', 'Width', 'Height']);
+  const addDimRow = (label, w, h, cls = '') => {
+    const tr = dimB.insertRow();
+    tr.className = cls;
+    tr.innerHTML = `<td>${label}</td><td>${w}"</td><td>${h}"</td>`;
+  };
+  addDimRow('Quilt blocks only', blockQW, blockQH);
+  if (borders.length) addDimRow(`With ${borders.length} border${borders.length > 1 ? 's' : ''}`, qW, qH);
+  const totalRow = dimB.insertRow();
+  totalRow.className = 'total-row';
+  totalRow.innerHTML = `<td>Finished quilt top</td>
+    <td><strong>${qW}"</strong> (${(qW/36).toFixed(2)} yd)</td>
+    <td><strong>${qH}"</strong> (${(qH/36).toFixed(2)} yd)</td>`;
+  const dimBody = document.createElement('div');
+  dimBody.className = 'calc-card-body';
+  dimBody.appendChild(dimT);
+  dimCard.appendChild(dimBody);
+  results.appendChild(dimCard);
+
+  // ── Card: Block Fabric ─────────────────────────────────────
+  const fabricCard = makeCalcCard('Block Fabric Needed');
+  const { table: fabT, tbody: fabB } = makeCalcTable(['', 'Fabric', 'Blocks', 'Cut size', 'Yardage']);
+
+  // Group pool by dataUrl to count occurrences of each unique fabric
+  const fabricMap = new Map();
+  for (const img of currentPool) {
+    if (!fabricMap.has(img.dataUrl)) fabricMap.set(img.dataUrl, { img, count: 0 });
+    fabricMap.get(img.dataUrl).count++;
+  }
+
+  let totalFabricYards = 0;
+  for (const { img, count } of fabricMap.values()) {
+    const yards = blockYardsNeeded(count, cutBlockSize, wof);
+    totalFabricYards += yards;
+    const tr = fabB.insertRow();
+    const thumb = `<img src="${img.dataUrl}" class="calc-thumb" alt="" />`;
+    tr.innerHTML = `<td>${thumb}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${img.name}">${img.name}</td>
+      <td>${count}</td>
+      <td>${cutBlockSize}"</td>
+      <td class="yardage-cell">${formatYards(yards)}</td>`;
+  }
+
+  const totRow = fabB.insertRow();
+  totRow.className = 'total-row';
+  totRow.innerHTML = `<td colspan="4">Total block fabric</td><td class="yardage-cell">${formatYards(totalFabricYards)}</td>`;
+
+  const fabBody = document.createElement('div');
+  fabBody.className = 'calc-card-body';
+  fabBody.appendChild(fabT);
+  const fabNote = document.createElement('p');
+  fabNote.className = 'calc-disclaimer';
+  fabNote.textContent = `Cut size: ${cutBlockSize}" per block (${blockSizeIn}" finished + ${sa * 2}" seam allowance). Assumes straight-grain cuts from ${wof}" WOF.`;
+  fabBody.appendChild(fabNote);
+  fabricCard.appendChild(fabBody);
+  results.appendChild(fabricCard);
+
+  // ── Card: Border Fabric ────────────────────────────────────
+  if (borders.length > 0) {
+    const borderCard = makeCalcCard('Border Fabric Needed');
+    const { table: brdT, tbody: brdB } = makeCalcTable(['', 'Layer', 'Fabric', 'Width (in)', 'Yardage']);
+
+    let runW = blockQW, runH = blockQH;
+    borders.forEach((border, idx) => {
+      const bIn = borderInchesSnapshot[idx];
+      const yards = borderYardsNeeded(bIn, runW, runH, sa, wof);
+
+      const thumbEl = border.image
+        ? `<img src="${border.image.dataUrl}" class="calc-thumb" alt="" />`
+        : `<div class="no-fabric-thumb">?</div>`;
+
+      const tr = brdB.insertRow();
+      const inchInputId = `calc-border-in-${idx}`;
+      tr.innerHTML = `
+        <td>${thumbEl}</td>
+        <td>Layer ${idx + 1}</td>
+        <td style="font-size:0.8rem;color:var(--text-muted)">${border.image ? border.image.name : 'No fabric selected'}</td>
+        <td><input type="number" id="${inchInputId}" class="calc-inch-input"
+             value="${bIn}" min="0.5" max="36" step="0.5" /></td>
+        <td class="yardage-cell">${formatYards(yards)}</td>`;
+
+      // Live update when inch value changes
+      setTimeout(() => {
+        document.getElementById(inchInputId)?.addEventListener('input', e => {
+          state.calc.borderInches[idx] = parseFloat(e.target.value) || 0;
+          renderCalculator();
+        });
+      }, 0);
+
+      runW += bIn * 2;
+      runH += bIn * 2;
+    });
+
+    const brdBody = document.createElement('div');
+    brdBody.className = 'calc-card-body';
+    brdBody.appendChild(brdT);
+    const brdNote = document.createElement('p');
+    brdNote.className = 'calc-disclaimer';
+    brdNote.textContent = 'Enter each border width in inches as it will be cut. Yardage includes extra for seams and corners.';
+    brdBody.appendChild(brdNote);
+    borderCard.appendChild(brdBody);
+    results.appendChild(borderCard);
+  }
+
+  // ── Card: Binding ──────────────────────────────────────────
+  {
+    const bindCard = makeCalcCard('Binding Needed');
+    const perimeterIn = 2 * (qW + qH);
+    const yards = bindingYardsNeeded(perimeterIn, c.bindingStripIn, wof);
+    const thumbEl = (binding.type === 'pattern' && binding.image)
+      ? `<img src="${binding.image.dataUrl}" class="calc-thumb" alt="" />`
+      : `<div class="no-fabric-thumb" style="display:inline-flex">∿</div>`;
+
+    const bindBody = document.createElement('div');
+    bindBody.className = 'calc-card-body';
+
+    const { table: bindT, tbody: bindB } = makeCalcTable(['', 'Strip width', 'Perimeter', 'Yardage']);
+    const bindRow = bindB.insertRow();
+    const stripInputId = 'calc-binding-strip-in';
+    bindRow.innerHTML = `
+      <td>${thumbEl}</td>
+      <td><input type="number" id="${stripInputId}" class="calc-inch-input"
+           value="${c.bindingStripIn}" min="1" max="6" step="0.25" /> in</td>
+      <td>${perimeterIn.toFixed(0)}"</td>
+      <td class="yardage-cell">${formatYards(yards)}</td>`;
+
+    setTimeout(() => {
+      document.getElementById(stripInputId)?.addEventListener('input', e => {
+        state.calc.bindingStripIn = parseFloat(e.target.value) || 2.5;
+        renderCalculator();
+      });
+    }, 0);
+
+    bindBody.appendChild(bindT);
+    const bindNote = document.createElement('p');
+    bindNote.className = 'calc-disclaimer';
+    bindNote.textContent = `Strips cut at ${c.bindingStripIn}" wide across ${wof}" WOF. Standard double-fold binding uses 2½" strips.`;
+    bindBody.appendChild(bindNote);
+    bindCard.appendChild(bindBody);
+    results.appendChild(bindCard);
+  }
+
+  // ── Card: Backing & Batting ────────────────────────────────
+  {
+    const backCard = makeCalcCard('Backing & Batting / Interfacing');
+    const backW = qW + 8; // 4" per side
+    const backH = qH + 8;
+
+    let backYards, backNote;
+    if (backW <= wof) {
+      backYards = backH / 36;
+      backNote  = '1 panel (fits within WOF)';
+    } else if (backW <= wof * 2 - 1) {
+      backYards = (backH * 2) / 36;
+      backNote  = '2 panels seamed side by side';
+    } else {
+      backYards = (backH * 3) / 36;
+      backNote  = '3 panels seamed side by side';
+    }
+
+    const backBody = document.createElement('div');
+    backBody.className = 'calc-card-body';
+    const { table: backT, tbody: backB } = makeCalcTable(['', 'Dimensions', 'Yardage', 'Notes']);
+
+    const backRow = backB.insertRow();
+    backRow.innerHTML = `<td>Backing fabric</td>
+      <td>${backW.toFixed(1)}" × ${backH.toFixed(1)}"</td>
+      <td class="yardage-cell">${formatYards(backYards)}</td>
+      <td class="calc-note-cell">${backNote}</td>`;
+
+    const battRow = backB.insertRow();
+    battRow.innerHTML = `<td>Batting / interfacing</td>
+      <td>${backW.toFixed(1)}" × ${backH.toFixed(1)}"</td>
+      <td class="yardage-cell calc-note-cell" colspan="2">Match backing dimensions — check batting width before buying</td>`;
+
+    const totalBackRow = backB.insertRow();
+    totalBackRow.className = 'total-row';
+    totalBackRow.innerHTML = `<td colspan="4">Finished quilt top: <strong>${qW}" × ${qH}"</strong> &nbsp;|&nbsp; With backing allowance: <strong>${backW}" × ${backH}"</strong></td>`;
+
+    backBody.appendChild(backT);
+    const backNote2 = document.createElement('p');
+    backNote2.className = 'calc-disclaimer';
+    backNote2.textContent = 'Backing includes 4" extra on each side for quilting/trimming. Yardage rounded up to nearest ⅛ yd throughout.';
+    backBody.appendChild(backNote2);
+    backCard.appendChild(backBody);
+    results.appendChild(backCard);
+  }
+}
+
 // ─── Utility ───────────────────────────────────────────────
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -555,6 +1363,16 @@ function shuffle(arr) {
   return arr;
 }
 
-// Re-render on option toggle (no full reload needed)
-seamsCheck.addEventListener('change', () => { if (quiltGrid.children.length) generateLayout(); });
-squareCheck.addEventListener('change', () => { if (quiltGrid.children.length) generateLayout(); });
+// Re-render on option toggle — preserve current pool/arrangement
+function reRenderIfActive() {
+  if (state.currentPool.length) renderGrid(state.currentPool, state.cols, state.rows);
+}
+seamsCheck.addEventListener('change', reRenderIfActive);
+squareCheck.addEventListener('change', reRenderIfActive);
+
+// Refit to window on resize
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(reRenderIfActive, 250);
+});
