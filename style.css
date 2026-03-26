@@ -18,38 +18,120 @@ body {
   font-family: 'Segoe UI', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ─── Header ──────────────────────────────────────────── */
 header {
+  flex-shrink: 0;
   background: var(--accent);
   color: white;
-  padding: 1.5rem 2rem;
+  padding: 0.9rem 2rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 header h1 {
-  font-size: 1.6rem;
+  font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
 
 header p {
-  margin-top: 0.25rem;
-  font-size: 0.9rem;
+  margin-top: 0.15rem;
+  font-size: 0.85rem;
   opacity: 0.85;
 }
 
-/* ─── Main Layout ─────────────────────────────────────── */
+/* ─── Main (fills remaining height) ─────────────────── */
 main {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
+  flex: 1;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
 }
+
+/* ─── Two-Panel Layout ────────────────────────────────── */
+.tab-content {
+  flex: 1;
+  overflow: hidden;
+}
+.tab-content[hidden] { display: none !important; }
+
+.quilt-layout {
+  display: grid;
+  grid-template-columns: clamp(280px, 26vw, 480px) 1fr;
+  height: 100%;
+}
+
+.quilt-sidebar {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 1rem 2rem 1.25rem;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.quilt-preview-pane {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 1.25rem 2rem 1rem;
+  background: var(--bg);
+}
+
+/* ─── Compact Upload Bar ─────────────────────────────── */
+.upload-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--accent-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+}
+.upload-compact-info {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+.upload-compact-info svg { flex-shrink: 0; fill: var(--accent); }
+.upload-compact-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.btn-compact-upload, .btn-compact-replace {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid var(--accent);
+  white-space: nowrap;
+}
+.btn-compact-upload {
+  background: var(--accent);
+  color: white;
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
+}
+.btn-compact-upload:hover { background: var(--accent-light); }
+.btn-compact-replace {
+  background: transparent;
+  color: var(--accent);
+}
+.btn-compact-replace:hover { background: var(--accent-dim); }
 
 section {
   background: var(--surface);
@@ -480,11 +562,13 @@ select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .quilt-cell.fit-crop img    { object-fit: contain; background: #f0f0f0; }
 
 /* ─── Responsive ──────────────────────────────────────── */
-@media (max-width: 600px) {
-  header { padding: 1rem; }
-  main { padding: 1rem 0.75rem; }
+@media (max-width: 860px) {
+  body { height: auto; overflow: auto; }
+  main { flex: none; overflow: visible; }
+  .tab-content { height: auto; overflow: visible; }
+  .quilt-layout { grid-template-columns: 1fr; height: auto; }
+  .quilt-sidebar, .quilt-preview-pane { overflow: visible; border-right: none; }
   .options-row { flex-direction: column; gap: 0.6rem; }
-  .toggle-row { flex-direction: column; align-items: flex-start; }
 }
 
 /* ─── Fabric Calculator ──────────────────────────────────── */
@@ -499,6 +583,16 @@ select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .calc-subtitle {
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+.calc-subhead {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-top: 0.6rem;
+  padding: 0 0.1rem;
 }
 
 .calc-settings {
@@ -654,6 +748,52 @@ select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   color: var(--text-muted);
   padding: 0.5rem 0.85rem 0.75rem;
   font-style: italic;
+}
+
+.calc-note-inline {
+  font-size: 0.82em;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ─── Cutting Guide Steps ───────────────────────────────── */
+.cutting-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.cutting-step {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+.cutting-step:last-child { border-bottom: none; }
+.cutting-step-num {
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.1rem;
+}
+.cutting-step-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+.cutting-step-detail {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
 }
 
 /* ─── Multiplier Slider ──────────────────────────────────── */
@@ -960,4 +1100,148 @@ select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .dyn-binding-layer {
   display: block;
   width: fit-content;
+}
+
+/* ─── Tab Bar ────────────────────────────────────────────── */
+.tab-bar {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 0 1.25rem;
+}
+
+.tab-btn {
+  padding: 0.85rem 2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
+}
+
+.tab-btn:hover { color: var(--accent); background: var(--accent-dim); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--surface); }
+
+/* ─── Pinwheel Layout ────────────────────────────────────── */
+.btn-pinwheel {
+  padding: 0.55rem 1.25rem;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+  background: #1a6fa0;
+  color: white;
+}
+.btn-pinwheel:hover { background: #2589c4; }
+.btn-pinwheel.active-mode { background: #0d4a6b; box-shadow: 0 0 0 3px rgba(26,111,160,0.3); }
+
+.pinwheel-bg-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* Pinwheel cells are now canvas elements */
+canvas.pinwheel-cell {
+  display: block;
+  cursor: grab;
+}
+canvas.pinwheel-cell:active { cursor: grabbing; }
+canvas.pinwheel-cell.dragging { opacity: 0.4; }
+canvas.pinwheel-cell.drag-over {
+  outline: 3px solid #fff;
+  outline-offset: -3px;
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+/* ─── Rail Fence ─────────────────────────────────────────── */
+.rail-block {
+  display: flex;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.rail-h { flex-direction: column; }
+.rail-v { flex-direction: row; }
+.rail-strip { flex: 1; position: relative; overflow: hidden; }
+
+/* ─── Jelly Roll Buttons ─────────────────────────────────── */
+.btn-jr-pinwheel {
+  padding: 0.55rem 1.25rem;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+  background: #7b3a5e;
+  color: white;
+}
+.btn-jr-pinwheel:hover { background: #a0527d; }
+
+/* ─── JR Two-Column Button Layout ───────────────────────── */
+.jr-btn-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+.jr-btn-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.col-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 0.1rem;
+}
+
+/* ─── JR Cell Drag-and-Drop ─────────────────────────────── */
+.jr-cell[draggable="true"] { cursor: grab; }
+.jr-cell[draggable="true"]:active { cursor: grabbing; }
+.jr-cell.dragging { opacity: 0.4; }
+.jr-cell.drag-over {
+  outline: 3px solid #fff;
+  outline-offset: -3px;
+  box-shadow: 0 0 0 3px var(--accent);
+  z-index: 1;
+}
+
+/* ─── JR Canvas cells ────────────────────────────────────── */
+canvas.jr-cell { display: block; flex-shrink: 0; }
+
+/* ─── JR Preview Wrapper ─────────────────────────────────── */
+#jr-preview-wrapper { overflow-x: auto; }
+#jr-quilt-frame     { display: block; width: fit-content; }
+
+/* ─── Mode Badge ─────────────────────────────────────────── */
+.mode-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.55);
+  color: white;
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
 }

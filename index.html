@@ -13,212 +13,497 @@
     <p>Upload your fabric images and preview how your quilt will lay out.</p>
   </header>
 
+  <!-- ── Tab Bar (spans full width above layout) ── -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="charm-pack">Charm Pack</button>
+    <button class="tab-btn" data-tab="jelly-roll">Jelly Roll</button>
+  </nav>
+
   <main>
-    <!-- Upload Section -->
-    <section class="upload-section">
-      <div id="drop-zone" class="drop-zone">
-        <div class="drop-zone-inner">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
-          </svg>
-          <p>Drag &amp; drop images here</p>
-          <span>or</span>
-          <label class="btn-upload" for="file-input">Choose Files</label>
-          <input type="file" id="file-input" accept="image/*" multiple hidden />
-        </div>
-      </div>
 
-      <div id="upload-status" class="upload-status">
-        <span id="image-count">0 images loaded</span>
-        <button id="clear-btn" class="btn-secondary" style="display:none">Clear All</button>
-      </div>
-    </section>
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!--  CHARM PACK TAB                                        -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div id="charm-pack-tab" class="tab-content">
+      <div class="quilt-layout">
 
-    <!-- Controls Section -->
-    <section class="controls-section" id="controls" style="display:none">
-      <div class="control-group">
-        <label>Grid Dimensions</label>
-        <div class="dimension-row">
-          <select id="dimension-select"></select>
-          <span class="dim-label" id="dim-label"></span>
-        </div>
-      </div>
+        <!-- ── Left Sidebar ── -->
+        <div class="quilt-sidebar">
 
-      <div class="control-group">
-        <label>Image Set</label>
-        <div class="mult-row">
-          <span class="mult-end">1×</span>
-          <input type="range" id="mult-slider" min="1" max="20" value="1" step="1" />
-          <span class="mult-end">20×</span>
-          <span id="mult-label">1× — 0 images</span>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label>Options</label>
-        <div class="options-row">
-          <label class="checkbox-label">
-            <input type="checkbox" id="shuffle-check" />
-            Shuffle image order
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="seams-check" checked />
-            Show seam lines
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" id="square-check" checked />
-            Square crop images
-          </label>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <button id="generate-btn" class="btn-primary">Generate Quilt Layout</button>
-        <button id="shuffle-btn" class="btn-secondary">Shuffle &amp; Regenerate</button>
-        <button id="optimize-btn" class="btn-optimize" title="Arrange blocks so similar colors are not placed next to each other">Optimize Colors</button>
-        <button id="checker-btn" class="btn-checker" title="Sort fabrics by brightness and alternate light/dark in a checkerboard pattern">Checkerboard</button>
-        <button id="hue-diag-btn" class="btn-hue-diag" title="Sort fabrics by color hue and arrange them in diagonal bands (red → orange → yellow → green → blue → purple)">Hue Diagonal</button>
-      </div>
-
-      <!-- ── Border & Binding ── -->
-      <div class="control-group bb-group">
-        <label>Border &amp; Binding</label>
-
-        <!-- BORDERS (stackable px-width strip layers) -->
-        <div class="bb-sub">
-          <div class="bb-sub-header">
-            <div>
-              <strong>Borders</strong>
-              <span class="bb-sub-hint">Fabric strips — inside → out</span>
-            </div>
-            <button id="add-border-btn" class="btn-add-border">+ Add Layer</button>
-          </div>
-          <div id="border-layers-list">
-            <p class="bb-empty-hint" id="border-empty-hint">No border layers yet. Click "+ Add Layer" to add one.</p>
-          </div>
-        </div>
-
-        <!-- BINDING -->
-        <div class="bb-sub">
-          <label class="checkbox-label">
-            <input type="checkbox" id="binding-enabled" />
-            <strong>Binding</strong> — decorative edge strip
-          </label>
-          <div id="binding-opts" class="bb-opts" hidden>
-            <div class="bb-row">
-              <span class="bb-label">Thickness</span>
-              <input type="range" id="binding-width-range" min="6" max="42" value="14" />
-              <span id="binding-width-display">14 px</span>
-            </div>
-            <div class="bb-row">
-              <span class="bb-label">Style</span>
-              <div class="type-tabs" id="binding-type-tabs">
-                <button class="type-tab active" data-type="solid">Solid</button>
-                <button class="type-tab" data-type="gradient">Gradient</button>
-                <button class="type-tab" data-type="pattern">Pattern</button>
+          <!-- Upload Section -->
+          <section class="upload-section">
+            <div id="drop-zone" class="drop-zone">
+              <div class="drop-zone-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+                </svg>
+                <p>Drag &amp; drop images here</p>
+                <span>or</span>
+                <label class="btn-upload" for="file-input">Choose Files</label>
+                <input type="file" id="file-input" accept="image/*" multiple hidden />
               </div>
             </div>
 
-            <!-- Solid panel -->
-            <div id="binding-solid-panel">
-              <div class="bb-row">
-                <span class="bb-label">Color</span>
-                <input type="color" id="binding-solid-color" value="#7b5e3a" />
+            <!-- Compact upload bar (shown after first upload) -->
+            <div id="upload-compact" class="upload-compact" style="display:none">
+              <span class="upload-compact-info">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z"/><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/></svg>
+                <span id="upload-compact-count">0 fabrics loaded</span>
+              </span>
+              <div class="upload-compact-actions">
+                <label class="btn-compact-upload" for="file-input">+ Upload More</label>
+                <button class="btn-compact-replace" id="upload-replace-btn">&#8635; Replace All</button>
+              </div>
+            </div>
+            <!-- Hidden JS state elements -->
+            <span id="image-count" hidden>0 images loaded</span>
+            <button id="clear-btn" hidden>Clear All</button>
+          </section>
+
+          <!-- Controls Section -->
+          <section class="controls-section" id="controls" style="display:none">
+            <div class="control-group">
+              <label>Grid Dimensions</label>
+              <div class="dimension-row">
+                <select id="dimension-select"></select>
+                <span class="dim-label" id="dim-label"></span>
               </div>
             </div>
 
-            <!-- Gradient panel -->
-            <div id="binding-gradient-panel" hidden>
-              <div class="bb-row">
-                <span class="bb-label">Colors</span>
-                <div id="grad-stops-row" class="grad-stops-row">
-                  <!-- stops injected by JS -->
-                  <button id="add-grad-stop" class="btn-add-stop" title="Add color stop">+</button>
+            <div class="control-group">
+              <label>Image Set</label>
+              <div class="mult-row">
+                <span class="mult-end">1×</span>
+                <input type="range" id="mult-slider" min="1" max="20" value="1" step="1" />
+                <span class="mult-end">20×</span>
+                <span id="mult-label">1× — 0 images</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label>Options</label>
+              <div class="options-row">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="shuffle-check" />
+                  Shuffle image order
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="seams-check" checked />
+                  Show seam lines
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="square-check" checked />
+                  Square crop images
+                </label>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <button id="generate-btn" class="btn-primary">Generate Quilt Layout</button>
+              <button id="shuffle-btn" class="btn-secondary">Shuffle &amp; Regenerate</button>
+              <button id="optimize-btn" class="btn-optimize" title="Arrange blocks so similar colors are not placed next to each other">Optimize Colors</button>
+              <button id="checker-btn" class="btn-checker" title="Sort fabrics by brightness and alternate light/dark in a checkerboard pattern">Checkerboard</button>
+              <button id="hue-diag-btn" class="btn-hue-diag" title="Sort fabrics by color hue and arrange them in diagonal bands (red → orange → yellow → green → blue → purple)">Hue Diagonal</button>
+              <button id="pinwheel-btn" class="btn-pinwheel" title="Render each block as a half-square triangle pinwheel">Pinwheel</button>
+            </div>
+
+            <!-- Pinwheel background color row (shown only in pinwheel mode) -->
+            <div id="pinwheel-bg-row" class="pinwheel-bg-row" style="display:none">
+              <label for="pinwheel-bg-color">Seam Color</label>
+              <input type="color" id="pinwheel-bg-color" value="#ffffff" />
+            </div>
+
+            <!-- ── Border & Binding ── -->
+            <div class="control-group bb-group">
+              <label>Border &amp; Binding</label>
+
+              <div class="bb-sub">
+                <div class="bb-sub-header">
+                  <div>
+                    <strong>Borders</strong>
+                    <span class="bb-sub-hint">Fabric strips — inside → out</span>
+                  </div>
+                  <button id="add-border-btn" class="btn-add-border">+ Add Layer</button>
+                </div>
+                <div id="border-layers-list">
+                  <p class="bb-empty-hint" id="border-empty-hint">No border layers yet. Click "+ Add Layer" to add one.</p>
                 </div>
               </div>
-              <div class="bb-row">
-                <span class="bb-label">Direction</span>
-                <select id="binding-grad-dir">
-                  <option value="to right">→ Horizontal</option>
-                  <option value="to bottom">↓ Vertical</option>
-                  <option value="135deg" selected>↘ Diagonal</option>
-                  <option value="45deg">↗ Diagonal (rev)</option>
-                </select>
+
+              <div class="bb-sub">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="binding-enabled" />
+                  <strong>Binding</strong> — decorative edge strip
+                </label>
+                <div id="binding-opts" class="bb-opts" hidden>
+                  <div class="bb-row">
+                    <span class="bb-label">Thickness</span>
+                    <input type="range" id="binding-width-range" min="6" max="42" value="14" />
+                    <span id="binding-width-display">14 px</span>
+                  </div>
+                  <div class="bb-row">
+                    <span class="bb-label">Style</span>
+                    <div class="type-tabs" id="binding-type-tabs">
+                      <button class="type-tab active" data-type="solid">Solid</button>
+                      <button class="type-tab" data-type="gradient">Gradient</button>
+                      <button class="type-tab" data-type="pattern">Pattern</button>
+                    </div>
+                  </div>
+                  <div id="binding-solid-panel">
+                    <div class="bb-row">
+                      <span class="bb-label">Color</span>
+                      <input type="color" id="binding-solid-color" value="#7b5e3a" />
+                    </div>
+                  </div>
+                  <div id="binding-gradient-panel" hidden>
+                    <div class="bb-row">
+                      <span class="bb-label">Colors</span>
+                      <div id="grad-stops-row" class="grad-stops-row">
+                        <button id="add-grad-stop" class="btn-add-stop" title="Add color stop">+</button>
+                      </div>
+                    </div>
+                    <div class="bb-row">
+                      <span class="bb-label">Direction</span>
+                      <select id="binding-grad-dir">
+                        <option value="to right">→ Horizontal</option>
+                        <option value="to bottom">↓ Vertical</option>
+                        <option value="135deg" selected>↘ Diagonal</option>
+                        <option value="45deg">↗ Diagonal (rev)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div id="binding-pattern-panel" hidden>
+                    <div class="bb-row bb-row-stack">
+                      <span class="bb-label">Fabric</span>
+                      <div class="picker-row" id="binding-picker"><em class="picker-empty">Load images first</em></div>
+                      <label class="btn-upload-sm" for="binding-upload-input">+ Upload New</label>
+                      <input type="file" id="binding-upload-input" accept="image/*" hidden />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- Pattern panel -->
-            <div id="binding-pattern-panel" hidden>
-              <div class="bb-row bb-row-stack">
-                <span class="bb-label">Fabric</span>
-                <div class="picker-row" id="binding-picker"><em class="picker-empty">Load images first</em></div>
-                <label class="btn-upload-sm" for="binding-upload-input">+ Upload New</label>
-                <input type="file" id="binding-upload-input" accept="image/*" hidden />
+            <!-- Fabric Calculator -->
+            <div class="control-group" id="calc-section" style="display:none">
+              <label>Fabric Calculator</label>
+              <span class="calc-subtitle">Estimates assume straight-grain cuts and standard WOF</span>
+              <div class="calc-settings">
+                <div class="calc-field">
+                  <label for="calc-block-size">Finished block size</label>
+                  <div class="input-unit">
+                    <input type="number" id="calc-block-size" value="5" min="0.5" max="24" step="0.5" />
+                    <span>in</span>
+                  </div>
+                </div>
+                <div class="calc-field">
+                  <label for="calc-seam">Seam allowance</label>
+                  <div class="input-unit">
+                    <input type="number" id="calc-seam" value="0.5" min="0" max="1" step="0.25" />
+                    <span>in (each side)</span>
+                  </div>
+                </div>
+                <div class="calc-field">
+                  <label for="calc-wof">Fabric width (WOF)</label>
+                  <div class="input-unit">
+                    <input type="number" id="calc-wof" value="42" min="36" max="60" step="1" />
+                    <span>in</span>
+                  </div>
+                </div>
+              </div>
+              <div id="calc-results"></div>
+            </div>
+
+          </section>
+        </div><!-- /quilt-sidebar -->
+
+        <!-- ── Right Preview Pane ── -->
+        <div class="quilt-preview-pane">
+
+          <!-- Grid Preview -->
+          <section class="preview-section" id="preview-section" style="display:none">
+            <div class="preview-header">
+              <h2>Quilt Preview</h2>
+              <span id="grid-info"></span>
+              <button id="save-btn" class="btn-save">Save Layout</button>
+            </div>
+            <div id="preview-wrapper">
+              <div id="quilt-frame">
+                <div id="quilt-grid" class="quilt-grid"></div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </section>
+          </section>
 
-    <!-- Grid Preview -->
-    <section class="preview-section" id="preview-section" style="display:none">
-      <div class="preview-header">
-        <h2>Quilt Preview</h2>
-        <span id="grid-info"></span>
-        <button id="save-btn" class="btn-save">Save Layout</button>
-      </div>
-      <div id="preview-wrapper">
-        <!-- #quilt-frame contents are rebuilt by applyBorderBinding() -->
-        <div id="quilt-frame">
-          <div id="quilt-grid" class="quilt-grid"></div>
-        </div>
-      </div>
-    </section>
+          <!-- Saved Layouts -->
+          <section class="saved-section" id="saved-section" style="display:none">
+            <div class="saved-section-header">
+              <h2>Saved Layouts <span id="saved-count"></span></h2>
+              <button id="clear-saved-btn" class="btn-secondary">Clear All</button>
+            </div>
+            <p class="saved-hint">Click a label to rename it. Drag-and-drop reordering is preserved when you save.</p>
+            <div id="saved-grid" class="saved-grid"></div>
+          </section>
 
-    <!-- Fabric Calculator -->
-    <section class="calc-section" id="calc-section" style="display:none">
-      <div class="calc-header">
-        <h2>Fabric Calculator</h2>
-        <span class="calc-subtitle">Estimates assume straight-grain cuts and standard WOF</span>
-      </div>
+        </div><!-- /quilt-preview-pane -->
+      </div><!-- /quilt-layout -->
+    </div><!-- /charm-pack-tab -->
 
-      <div class="calc-settings">
-        <div class="calc-field">
-          <label for="calc-block-size">Finished block size</label>
-          <div class="input-unit">
-            <input type="number" id="calc-block-size" value="5" min="0.5" max="24" step="0.5" />
-            <span>in</span>
-          </div>
-        </div>
-        <div class="calc-field">
-          <label for="calc-seam">Seam allowance</label>
-          <div class="input-unit">
-            <input type="number" id="calc-seam" value="0.5" min="0" max="1" step="0.25" />
-            <span>in (each side)</span>
-          </div>
-        </div>
-        <div class="calc-field">
-          <label for="calc-wof">Fabric width (WOF)</label>
-          <div class="input-unit">
-            <input type="number" id="calc-wof" value="42" min="36" max="60" step="1" />
-            <span>in</span>
-          </div>
-        </div>
-      </div>
 
-      <div id="calc-results"></div>
-    </section>
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!--  JELLY ROLL TAB                                        -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div id="jelly-roll-tab" class="tab-content" hidden>
+      <div class="quilt-layout">
 
-    <!-- Saved Layouts -->
-    <section class="saved-section" id="saved-section" style="display:none">
-      <div class="saved-section-header">
-        <h2>Saved Layouts <span id="saved-count"></span></h2>
-        <button id="clear-saved-btn" class="btn-secondary">Clear All</button>
-      </div>
-      <p class="saved-hint">Click a label to rename it. Drag-and-drop reordering is preserved when you save.</p>
-      <div id="saved-grid" class="saved-grid"></div>
-    </section>
+        <!-- ── Left Sidebar ── -->
+        <div class="quilt-sidebar">
+
+          <!-- JR Upload Section -->
+          <section class="upload-section">
+            <div id="jr-drop-zone" class="drop-zone">
+              <div class="drop-zone-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+                </svg>
+                <p>Drag &amp; drop strip fabric images here</p>
+                <span>or</span>
+                <label class="btn-upload" for="jr-file-input">Choose Files</label>
+                <input type="file" id="jr-file-input" accept="image/*" multiple hidden />
+              </div>
+            </div>
+
+            <!-- Compact upload bar (shown after first upload) -->
+            <div id="jr-upload-compact" class="upload-compact" style="display:none">
+              <span class="upload-compact-info">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z"/><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/></svg>
+                <span id="jr-upload-compact-count">0 strips loaded</span>
+              </span>
+              <div class="upload-compact-actions">
+                <label class="btn-compact-upload" for="jr-file-input">+ Upload More</label>
+                <button class="btn-compact-replace" id="jr-upload-replace-btn">&#8635; Replace All</button>
+              </div>
+            </div>
+            <!-- Hidden JS state elements -->
+            <span id="jr-image-count" hidden>0 strips loaded</span>
+            <button id="jr-clear-btn" hidden>Clear All</button>
+          </section>
+
+          <!-- JR Controls -->
+          <section class="controls-section" id="jr-controls" style="display:none">
+
+            <div class="control-group">
+              <label>Grid Dimensions</label>
+              <div class="dimension-row">
+                <select id="jr-dimension-select"></select>
+                <span class="dim-label" id="jr-dim-label"></span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label>Image Set</label>
+              <div class="mult-row">
+                <span class="mult-end">1×</span>
+                <input type="range" id="jr-mult-slider" min="1" max="20" value="1" step="1" />
+                <span class="mult-end">20×</span>
+                <span id="jr-mult-label">1× — 0 strips</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label>Strips per Block</label>
+              <div class="mult-row">
+                <span class="mult-end">2</span>
+                <input type="range" id="jr-strips-slider" min="2" max="8" value="3" step="1" />
+                <span class="mult-end">8</span>
+                <span id="jr-strips-label">3 strips per block</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label>Options</label>
+              <div class="options-row">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="jr-shuffle-check" />
+                  Shuffle strip order
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="jr-seams-check" checked />
+                  Show seam lines
+                </label>
+              </div>
+            </div>
+
+            <div class="control-group jr-btn-columns">
+              <div class="jr-btn-col">
+                <label class="col-label">Layout</label>
+                <button id="jr-railfence-btn" class="btn-primary">Rail Fence</button>
+                <button id="jr-stringpinwheel-btn" class="btn-jr-pinwheel">String Pinwheel</button>
+              </div>
+              <div class="jr-btn-col">
+                <label class="col-label">Color &amp; Order</label>
+                <button id="jr-shuffle-btn" class="btn-secondary">Shuffle &amp; Regenerate</button>
+                <button id="jr-optimize-btn" class="btn-optimize" title="Arrange blocks so similar colors are not placed next to each other">Optimize Colors</button>
+                <button id="jr-checker-btn" class="btn-checker" title="Alternate light and dark blocks in a checkerboard pattern">Checkerboard</button>
+                <button id="jr-hue-diag-btn" class="btn-hue-diag" title="Sort blocks by color hue in diagonal bands">Hue Diagonal</button>
+              </div>
+            </div>
+
+            <!-- ── JR Border & Binding ── -->
+            <div class="control-group bb-group">
+              <label>Border &amp; Binding</label>
+
+              <div class="bb-sub">
+                <div class="bb-sub-header">
+                  <div>
+                    <strong>Borders</strong>
+                    <span class="bb-sub-hint">Fabric strips — inside → out</span>
+                  </div>
+                  <button id="jr-add-border-btn" class="btn-add-border">+ Add Layer</button>
+                </div>
+                <div id="jr-border-layers-list">
+                  <p class="bb-empty-hint" id="jr-border-empty-hint">No border layers yet. Click "+ Add Layer" to add one.</p>
+                </div>
+              </div>
+
+              <div class="bb-sub">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="jr-binding-enabled" />
+                  <strong>Binding</strong> — decorative edge strip
+                </label>
+                <div id="jr-binding-opts" class="bb-opts" hidden>
+                  <div class="bb-row">
+                    <span class="bb-label">Thickness</span>
+                    <input type="range" id="jr-binding-width-range" min="6" max="42" value="14" />
+                    <span id="jr-binding-width-display">14 px</span>
+                  </div>
+                  <div class="bb-row">
+                    <span class="bb-label">Style</span>
+                    <div class="type-tabs" id="jr-binding-type-tabs">
+                      <button class="type-tab active" data-type="solid">Solid</button>
+                      <button class="type-tab" data-type="gradient">Gradient</button>
+                      <button class="type-tab" data-type="pattern">Pattern</button>
+                    </div>
+                  </div>
+                  <div id="jr-binding-solid-panel">
+                    <div class="bb-row">
+                      <span class="bb-label">Color</span>
+                      <input type="color" id="jr-binding-solid-color" value="#7b5e3a" />
+                    </div>
+                  </div>
+                  <div id="jr-binding-gradient-panel" hidden>
+                    <div class="bb-row">
+                      <span class="bb-label">Colors</span>
+                      <div id="jr-grad-stops-row" class="grad-stops-row">
+                        <button id="jr-add-grad-stop" class="btn-add-stop" title="Add color stop">+</button>
+                      </div>
+                    </div>
+                    <div class="bb-row">
+                      <span class="bb-label">Direction</span>
+                      <select id="jr-binding-grad-dir">
+                        <option value="to right">→ Horizontal</option>
+                        <option value="to bottom">↓ Vertical</option>
+                        <option value="135deg" selected>↘ Diagonal</option>
+                        <option value="45deg">↗ Diagonal (rev)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div id="jr-binding-pattern-panel" hidden>
+                    <div class="bb-row bb-row-stack">
+                      <span class="bb-label">Fabric</span>
+                      <div class="picker-row" id="jr-binding-picker"><em class="picker-empty">Load images first</em></div>
+                      <label class="btn-upload-sm" for="jr-binding-upload-input">+ Upload New</label>
+                      <input type="file" id="jr-binding-upload-input" accept="image/*" hidden />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- JR Calculator -->
+            <div class="control-group" id="jr-calc-section" style="display:none">
+              <label>Strip Calculator</label>
+              <span class="calc-subtitle">Estimates based on your jelly roll pack specs</span>
+
+              <div class="calc-subhead">Jelly Roll Pack</div>
+              <div class="calc-settings">
+                <div class="calc-field">
+                  <label for="jr-calc-pack-strips">Strips in pack</label>
+                  <div class="input-unit">
+                    <input type="number" id="jr-calc-pack-strips" value="40" min="1" max="200" step="1" />
+                    <span>strips</span>
+                  </div>
+                </div>
+                <div class="calc-field">
+                  <label for="jr-calc-pack-unique">Unique designs</label>
+                  <div class="input-unit">
+                    <input type="number" id="jr-calc-pack-unique" value="20" min="1" max="200" step="1" />
+                    <span>designs</span>
+                  </div>
+                </div>
+                <div class="calc-field">
+                  <label for="jr-calc-strip-width">Strip width (cut)</label>
+                  <div class="input-unit">
+                    <input type="number" id="jr-calc-strip-width" value="2.5" min="1" max="6" step="0.25" />
+                    <span>in</span>
+                  </div>
+                </div>
+                <div class="calc-field">
+                  <label for="jr-calc-strip-length">Strip length</label>
+                  <div class="input-unit">
+                    <input type="number" id="jr-calc-strip-length" value="44" min="36" max="60" step="1" />
+                    <span>in</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="calc-subhead">Backing</div>
+              <div class="calc-settings">
+                <div class="calc-field">
+                  <label for="jr-calc-wof">Fabric width (WOF)</label>
+                  <div class="input-unit">
+                    <input type="number" id="jr-calc-wof" value="42" min="36" max="60" step="1" />
+                    <span>in</span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="jr-calc-results"></div>
+            </div>
+
+          </section>
+        </div><!-- /quilt-sidebar -->
+
+        <!-- ── Right Preview Pane ── -->
+        <div class="quilt-preview-pane">
+
+          <!-- JR Preview -->
+          <section class="preview-section" id="jr-preview-section" style="display:none">
+            <div class="preview-header">
+              <h2>Jelly Roll Preview</h2>
+              <span id="jr-grid-info"></span>
+              <button id="jr-save-btn" class="btn-save">Save Layout</button>
+            </div>
+            <div id="jr-preview-wrapper">
+              <div id="jr-quilt-frame">
+                <div id="jr-quilt-grid" class="quilt-grid"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- JR Saved Layouts -->
+          <section class="saved-section" id="jr-saved-section" style="display:none">
+            <div class="saved-section-header">
+              <h2>Saved JR Layouts <span id="jr-saved-count"></span></h2>
+              <button id="jr-clear-saved-btn" class="btn-secondary">Clear All</button>
+            </div>
+            <p class="saved-hint">Click a label to rename. Click thumbnail or Load to restore.</p>
+            <div id="jr-saved-grid" class="saved-grid"></div>
+          </section>
+
+        </div><!-- /quilt-preview-pane -->
+      </div><!-- /quilt-layout -->
+    </div><!-- /jelly-roll-tab -->
+
   </main>
 
   <script src="app.js"></script>

@@ -9,12 +9,14 @@ const state = {
   saveCounter: 0,
   activeCardId: null,
   lastCellPx: 60,
-  borders: [],       // Array of { widthPx, image: {name,dataUrl}|null } — innermost first
+  cpLayoutMode: 'standard',  // 'standard' | 'pinwheel'
+  pinwheelBg: '#ffffff',
+  pinwheelPairPool: [],  // secondary triangles, parallel to currentPool in pinwheel mode
+  borders: [],       // Array of { widthIn, image: {name,dataUrl}|null } — innermost first
   calc: {
     blockSizeIn:    5,    // finished block size in inches
     seamAllowance:  0.5,  // total seam allowance per side (standard ¼" = 0.5" cut-to-finished)
     fabricWidthIn:  42,   // WOF (width of fabric)
-    borderInches:   [],   // one entry per borders layer (user sets actual inch width here)
     bindingStripIn: 2.5,  // strip width for binding
   },
   binding: {
@@ -25,6 +27,36 @@ const state = {
     gradientColors: ['#7b5e3a', '#d4a574'],
     gradientDir: '135deg',
     image: null,
+  },
+  jellyRoll: {
+    strips: [],
+    multiplier: 1,
+    cols: 0,
+    rows: 0,
+    stripsPerBlock: 3,
+    currentBlocks: [],
+    layoutMode: 'railfence',
+    savedLayouts: [],
+    saveCounter: 0,
+    activeCardId: null,
+    lastCellPx: 60,
+    borders: [],
+    binding: {
+      enabled: false,
+      widthPx: 14,
+      type: 'solid',
+      solidColor: '#7b5e3a',
+      gradientColors: ['#7b5e3a', '#d4a574'],
+      gradientDir: '135deg',
+      image: null,
+    },
+    calc: {
+      fabricWidthIn: 42,
+      stripWidthIn: 2.5,
+      packTotalStrips: 40,
+      packUniqueDesigns: 20,
+      packStripLengthIn: 44,
+    },
   },
 };
 
@@ -118,14 +150,26 @@ function onImagesUpdated() {
   clearBtn.style.display = count > 0 ? 'inline-block' : 'none';
 
   if (count > 0) {
+    document.getElementById('drop-zone').style.display = 'none';
+    const compact = document.getElementById('upload-compact');
+    compact.style.display = 'flex';
+    document.getElementById('upload-compact-count').textContent =
+      `${count} fabric${count !== 1 ? 's' : ''} loaded`;
     controls.style.display = 'flex';
     rebuildDimensionOptions();
     updateSetCountLabel();
-    buildImagePickers(); // keep border/binding pickers in sync
+    buildImagePickers();
   } else {
+    document.getElementById('drop-zone').style.display = '';
+    document.getElementById('upload-compact').style.display = 'none';
     controls.style.display = 'none';
   }
 }
+
+document.getElementById('upload-replace-btn').addEventListener('click', () => {
+  clearImages();
+  // clearImages → onImagesUpdated(count=0) → shows drop zone automatically
+});
 
 // ─── Dimension Logic ───────────────────────────────────────
 /** Return all factor pairs [cols, rows] for a given total, landscape-first. */
@@ -195,15 +239,22 @@ function updateMultLabel() {
 function updateSetCountLabel() { updateMultLabel(); }
 
 // ─── Generate ──────────────────────────────────────────────
-generateBtn.addEventListener('click', generateLayout);
+generateBtn.addEventListener('click', () => { setCpModeStandard(); generateLayout(); });
 shuffleBtn.addEventListener('click', () => {
+  setCpModeStandard();
   shuffleCheck.checked = true;
   generateLayout();
 });
-optimizeBtn.addEventListener('click', optimizeLayout);
-checkerBtn.addEventListener('click', checkerLayout);
+optimizeBtn.addEventListener('click', () => { setCpModeStandard(); optimizeLayout(); });
+checkerBtn.addEventListener('click', () => { setCpModeStandard(); checkerLayout(); });
 const hueDiagBtn = document.getElementById('hue-diag-btn');
-hueDiagBtn.addEventListener('click', hueDiagonalLayout);
+hueDiagBtn.addEventListener('click', () => { setCpModeStandard(); hueDiagonalLayout(); });
+
+function setCpModeStandard() {
+  state.cpLayoutMode = 'standard';
+  document.getElementById('pinwheel-bg-row').style.display = 'none';
+  document.getElementById('pinwheel-btn').classList.remove('active-mode');
+}
 
 function generateLayout() {
   if (!state.images.length) return;
@@ -237,7 +288,8 @@ clearSavedBtn.addEventListener('click', () => {
 
 /** Cell size that fits the quilt + all borders + binding within the viewport. */
 function computeCellPx(cols, rows) {
-  const borderPad = state.borders.reduce((s, b) => s + b.widthPx, 0) * 2;
+  const pxPerIn   = state.lastCellPx / (state.calc.blockSizeIn || 5);
+  const borderPad = state.borders.reduce((s, b) => s + (b.widthIn || 0) * pxPerIn, 0) * 2;
   const bindPad   = state.binding.enabled ? state.binding.widthPx * 2 : 0;
   const totalPad  = borderPad + bindPad;
   const seamGap   = seamsCheck.checked ? 3 : 0;
@@ -286,7 +338,6 @@ function renderGrid(pool, cols, rows) {
 
   gridInfo.textContent = `${cols} columns × ${rows} rows — ${pool.length} blocks`;
   previewSection.style.display = 'block';
-  previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ─── Drag-to-Swap ──────────────────────────────────────────
@@ -341,30 +392,28 @@ function addDragSwap() {
 
 // ─── Border Layers ─────────────────────────────────────────
 addBorderBtn.addEventListener('click', () => {
-  state.borders.push({ widthPx: 30, image: null });
-  state.calc.borderInches.push(3); // default 3" for new layer
+  state.borders.push({ widthIn: 3, image: null });
   renderBorderLayersUI();
   reRenderIfActive();
   renderCalculator();
 });
 
-function renderBorderLayersUI() {
-  const emptyHint = document.getElementById('border-empty-hint');
-  // Remove existing layer cards (keep the empty hint)
-  borderLayersList.querySelectorAll('.border-layer-card').forEach(c => c.remove());
+function renderBorderLayersUIFor(borders, listId, emptyHintId, srcImages, reRenderFn) {
+  const list = document.getElementById(listId);
+  const emptyHint = document.getElementById(emptyHintId);
+  list.querySelectorAll('.border-layer-card').forEach(c => c.remove());
 
-  if (!state.borders.length) {
+  if (!borders.length) {
     if (emptyHint) emptyHint.style.display = '';
     return;
   }
   if (emptyHint) emptyHint.style.display = 'none';
 
-  state.borders.forEach((layer, idx) => {
+  borders.forEach((layer, idx) => {
     const card = document.createElement('div');
     card.className = 'border-layer-card';
     card.dataset.idx = idx;
 
-    // Header: label + width slider + remove
     const header = document.createElement('div');
     header.className = 'border-layer-header';
 
@@ -375,33 +424,29 @@ function renderBorderLayersUI() {
     const slider = document.createElement('input');
     slider.type = 'range';
     slider.className = 'border-layer-slider';
-    slider.min = 4; slider.max = 200; slider.value = layer.widthPx;
+    slider.min = 0.5; slider.max = 12; slider.step = 0.25; slider.value = layer.widthIn;
 
     const valSpan = document.createElement('span');
     valSpan.className = 'border-layer-val';
-    valSpan.textContent = `${layer.widthPx} px`;
+    valSpan.textContent = `${layer.widthIn}"`;
 
     slider.addEventListener('input', () => {
-      layer.widthPx = parseInt(slider.value, 10);
-      valSpan.textContent = `${layer.widthPx} px`;
-      reRenderIfActive();
+      layer.widthIn = parseFloat(slider.value);
+      valSpan.textContent = `${layer.widthIn}"`;
+      reRenderFn();
     });
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'btn-remove-border';
     removeBtn.textContent = '✕ Remove';
     removeBtn.addEventListener('click', () => {
-      state.borders.splice(idx, 1);
-      state.calc.borderInches.splice(idx, 1);
-      renderBorderLayersUI();
-      buildImagePickers();
-      reRenderIfActive();
-      renderCalculator();
+      borders.splice(idx, 1);
+      renderBorderLayersUIFor(borders, listId, emptyHintId, srcImages, reRenderFn);
+      reRenderFn();
     });
 
     header.append(numLabel, slider, valSpan, removeBtn);
 
-    // Fabric picker row
     const pickerWrap = document.createElement('div');
     pickerWrap.className = 'bb-row bb-row-stack';
 
@@ -409,15 +454,16 @@ function renderBorderLayersUI() {
     pickerLabel.className = 'bb-label';
     pickerLabel.textContent = 'Fabric';
 
+    const pickerId = `${listId}-picker-${idx}`;
     const pickerRow = document.createElement('div');
     pickerRow.className = 'picker-row';
-    pickerRow.id = `border-picker-${idx}`;
+    pickerRow.id = pickerId;
     pickerRow.innerHTML = '<em class="picker-empty">Load images first</em>';
 
+    const uploadId = `${listId}-upload-${idx}`;
     const uploadLabel = document.createElement('label');
     uploadLabel.className = 'btn-upload-sm';
     uploadLabel.textContent = '+ Upload New';
-    const uploadId = `border-upload-${idx}`;
     uploadLabel.htmlFor = uploadId;
 
     const uploadInput = document.createElement('input');
@@ -431,28 +477,38 @@ function renderBorderLayersUI() {
       const reader = new FileReader();
       reader.onload = e => {
         layer.image = { name: file.name, dataUrl: e.target.result };
-        buildBorderPickerAt(idx);
-        reRenderIfActive();
+        buildImagePicker(pickerId, img => { layer.image = img; reRenderFn(); }, layer.image?.dataUrl, srcImages);
+        reRenderFn();
       };
       reader.readAsDataURL(file);
     });
 
     pickerWrap.append(pickerLabel, pickerRow, uploadLabel, uploadInput);
     card.append(header, pickerWrap);
-    borderLayersList.appendChild(card);
+    list.appendChild(card);
 
-    // Populate the picker
-    buildBorderPickerAt(idx);
+    buildImagePicker(pickerId, img => { layer.image = img; reRenderFn(); }, layer.image?.dataUrl, srcImages);
   });
 }
 
-function buildBorderPickerAt(idx) {
-  const layer = state.borders[idx];
-  if (!layer) return;
-  buildImagePicker(`border-picker-${idx}`, img => {
-    layer.image = img;
-    reRenderIfActive();
-  }, layer.image?.dataUrl);
+function renderBorderLayersUI() {
+  renderBorderLayersUIFor(
+    state.borders,
+    'border-layers-list',
+    'border-empty-hint',
+    state.images,
+    () => { reRenderIfActive(); renderCalculator(); }
+  );
+}
+
+function renderJrBorderLayersUI() {
+  renderBorderLayersUIFor(
+    state.jellyRoll.borders,
+    'jr-border-layers-list',
+    'jr-border-empty-hint',
+    state.jellyRoll.strips,
+    () => { jrReRenderIfActive(); renderJrCalculator(); }
+  );
 }
 
 bindingEnabledCk.addEventListener('change', () => {
@@ -504,30 +560,85 @@ document.querySelectorAll('#binding-type-tabs .type-tab').forEach(btn => {
   });
 });
 
+// ── JR Border & Binding Listeners ──────────────────────────
+document.getElementById('jr-add-border-btn').addEventListener('click', () => {
+  state.jellyRoll.borders.push({ widthIn: 3, image: null });
+  renderJrBorderLayersUI();
+  jrReRenderIfActive();
+  renderJrCalculator();
+});
+
+document.getElementById('jr-binding-enabled').addEventListener('change', e => {
+  state.jellyRoll.binding.enabled = e.target.checked;
+  document.getElementById('jr-binding-opts').hidden = !e.target.checked;
+  if (state.jellyRoll.currentBlocks.length) applyJrBorderBinding();
+});
+
+document.getElementById('jr-binding-width-range').addEventListener('input', e => {
+  state.jellyRoll.binding.widthPx = parseInt(e.target.value, 10);
+  document.getElementById('jr-binding-width-display').textContent = `${e.target.value} px`;
+  if (state.jellyRoll.currentBlocks.length) applyJrBorderBinding();
+});
+
+document.getElementById('jr-binding-solid-color').addEventListener('input', e => {
+  state.jellyRoll.binding.solidColor = e.target.value;
+  if (state.jellyRoll.currentBlocks.length) applyJrBorderBinding();
+});
+
+document.getElementById('jr-binding-grad-dir').addEventListener('change', e => {
+  state.jellyRoll.binding.gradientDir = e.target.value;
+  if (state.jellyRoll.currentBlocks.length) applyJrBorderBinding();
+});
+
+document.getElementById('jr-add-grad-stop').addEventListener('click', () => {
+  if (state.jellyRoll.binding.gradientColors.length >= 5) return;
+  state.jellyRoll.binding.gradientColors.push('#c8a96e');
+  renderJrGradientStops();
+  if (state.jellyRoll.currentBlocks.length) applyJrBorderBinding();
+});
+
+document.getElementById('jr-binding-upload-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    state.jellyRoll.binding.image = { name: file.name, dataUrl: ev.target.result };
+    buildJrBindingPicker();
+    if (state.jellyRoll.currentBlocks.length) applyJrBorderBinding();
+  };
+  reader.readAsDataURL(file);
+});
+
+document.querySelectorAll('#jr-binding-type-tabs .type-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#jr-binding-type-tabs .type-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.jellyRoll.binding.type = btn.dataset.type;
+    document.getElementById('jr-binding-solid-panel').hidden   = state.jellyRoll.binding.type !== 'solid';
+    document.getElementById('jr-binding-gradient-panel').hidden = state.jellyRoll.binding.type !== 'gradient';
+    document.getElementById('jr-binding-pattern-panel').hidden  = state.jellyRoll.binding.type !== 'pattern';
+    if (state.jellyRoll.currentBlocks.length) applyJrBorderBinding();
+  });
+});
+
 // ─── Border & Binding — dynamic nested wrappers ────────────
-function applyBorderBinding() {
-  const quiltGridEl = document.getElementById('quilt-grid');
-  const frame       = document.getElementById('quilt-frame');
-
-  // Detach quilt-grid, clear frame
+function applyBorderBindingToFrame(frameId, gridId, borders, binding, pxPerIn) {
+  const quiltGridEl = document.getElementById(gridId);
+  const frame       = document.getElementById(frameId);
   frame.innerHTML = '';
-
-  // Build layers from inside → out: borders then binding
   let inner = quiltGridEl;
 
-  // Apply border layers innermost first (index 0 = innermost)
-  for (const b of state.borders) {
+  for (const b of borders) {
+    const bPx = Math.max(Math.round((b.widthIn || 0) * pxPerIn), 4);
     const wrap = document.createElement('div');
     wrap.className = 'dyn-border-layer';
-    wrap.style.padding = `${b.widthPx}px`;
+    wrap.style.padding = `${bPx}px`;
     if (b.image) {
-      // Tile the fabric at roughly square tiles matching the strip width
-      const tile = Math.max(b.widthPx * 2, 40);
+      const tile = Math.max(bPx * 2, 40);
       wrap.style.backgroundImage  = `url("${b.image.dataUrl}")`;
       wrap.style.backgroundSize   = `${tile}px ${tile}px`;
       wrap.style.backgroundRepeat = 'repeat';
     } else {
-      // Placeholder hatch pattern when no fabric selected yet
       wrap.style.background =
         'repeating-linear-gradient(45deg,#e8ddd0,#e8ddd0 6px,#d9cfc4 6px,#d9cfc4 12px)';
     }
@@ -535,13 +646,12 @@ function applyBorderBinding() {
     inner = wrap;
   }
 
-  // Apply binding (outermost)
-  if (state.binding.enabled) {
-    const w = state.binding.widthPx;
+  if (binding.enabled) {
+    const w = binding.widthPx;
     const wrap = document.createElement('div');
     wrap.className = 'dyn-binding-layer';
     wrap.style.padding = `${w}px`;
-    const { type, solidColor, gradientColors, gradientDir, image } = state.binding;
+    const { type, solidColor, gradientColors, gradientDir, image } = binding;
     if (type === 'solid') {
       wrap.style.background = solidColor;
     } else if (type === 'gradient') {
@@ -558,19 +668,32 @@ function applyBorderBinding() {
   frame.appendChild(inner);
 }
 
+function applyBorderBinding() {
+  const pxPerIn = state.lastCellPx / (state.calc.blockSizeIn || 5);
+  applyBorderBindingToFrame('quilt-frame', 'quilt-grid', state.borders, state.binding, pxPerIn);
+}
+
+function applyJrBorderBinding() {
+  const jr = state.jellyRoll;
+  const finishedStripW = jr.calc.stripWidthIn - 0.5;
+  const blockSizeIn = jr.stripsPerBlock * finishedStripW || 5;
+  applyBorderBindingToFrame('jr-quilt-frame', 'jr-quilt-grid', jr.borders, jr.binding, jr.lastCellPx / blockSizeIn);
+}
+
 // ─── Image Pickers ─────────────────────────────────────────
-function buildImagePicker(containerId, onSelect, currentDataUrl) {
+function buildImagePicker(containerId, onSelect, currentDataUrl, sourceImages) {
+  if (!sourceImages) sourceImages = state.images;
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '';
 
-  if (!state.images.length) {
+  if (!sourceImages.length) {
     container.innerHTML = '<em class="picker-empty">Load images first</em>';
     return;
   }
 
-  // Optionally include a dedicated uploaded image that isn't in state.images
-  const items = [...state.images];
+  // Optionally include a dedicated uploaded image that isn't in sourceImages
+  const items = [...sourceImages];
   if (currentDataUrl && !items.find(i => i.dataUrl === currentDataUrl)) {
     items.unshift({ name: 'uploaded', dataUrl: currentDataUrl });
   }
@@ -592,22 +715,43 @@ function buildImagePicker(containerId, onSelect, currentDataUrl) {
 function buildBindingPicker() {
   buildImagePicker('binding-picker', img => {
     state.binding.image = img;
-    reRenderIfActive();
+    if (state.currentPool.length) applyBorderBinding();
   }, state.binding.image?.dataUrl);
 }
 
 function buildImagePickers() {
-  // Rebuild all dynamic border pickers
-  state.borders.forEach((_, idx) => buildBorderPickerAt(idx));
+  renderBorderLayersUI();
   buildBindingPicker();
 }
 
-// ─── Gradient Stops ────────────────────────────────────────
-function renderGradientStops() {
-  // Remove all existing stop wrappers (keep the + button)
-  gradStopsRow.querySelectorAll('.grad-stop-wrap').forEach(el => el.remove());
+function buildJrBorderPickerAt(idx) {
+  const layer = state.jellyRoll.borders[idx];
+  if (!layer) return;
+  buildImagePicker(`jr-border-layers-list-picker-${idx}`, img => {
+    layer.image = img;
+    applyJrBorderBinding();
+  }, layer.image?.dataUrl, state.jellyRoll.strips);
+}
 
-  state.binding.gradientColors.forEach((color, idx) => {
+function buildJrBindingPicker() {
+  buildImagePicker('jr-binding-picker', img => {
+    state.jellyRoll.binding.image = img;
+    applyJrBorderBinding();
+  }, state.jellyRoll.binding.image?.dataUrl, state.jellyRoll.strips);
+}
+
+function buildJrImagePickers() {
+  state.jellyRoll.borders.forEach((_, idx) => buildJrBorderPickerAt(idx));
+  buildJrBindingPicker();
+}
+
+// ─── Gradient Stops ────────────────────────────────────────
+function renderGradientStopsFor(binding, rowId, addBtnId, reRenderFn) {
+  const row = document.getElementById(rowId);
+  const addBtn = document.getElementById(addBtnId);
+  row.querySelectorAll('.grad-stop-wrap').forEach(el => el.remove());
+
+  binding.gradientColors.forEach((color, idx) => {
     const wrap = document.createElement('span');
     wrap.className = 'grad-stop-wrap';
 
@@ -616,32 +760,45 @@ function renderGradientStops() {
     input.className = 'grad-stop';
     input.value = color;
     input.addEventListener('input', () => {
-      state.binding.gradientColors[idx] = input.value;
-      if (state.currentPool.length) applyBorderBinding();
+      binding.gradientColors[idx] = input.value;
+      reRenderFn();
     });
     wrap.appendChild(input);
 
-    if (state.binding.gradientColors.length > 2) {
+    if (binding.gradientColors.length > 2) {
       const rm = document.createElement('button');
       rm.className = 'btn-remove-stop';
-      rm.textContent = '×';
+      rm.textContent = '✕';
       rm.title = 'Remove stop';
       rm.addEventListener('click', () => {
-        state.binding.gradientColors.splice(idx, 1);
-        renderGradientStops();
-        if (state.currentPool.length) applyBorderBinding();
+        binding.gradientColors.splice(idx, 1);
+        renderGradientStopsFor(binding, rowId, addBtnId, reRenderFn);
+        reRenderFn();
       });
       wrap.appendChild(rm);
     }
 
-    gradStopsRow.insertBefore(wrap, addGradStopBtn);
+    row.insertBefore(wrap, addBtn);
   });
 
-  addGradStopBtn.style.display = state.binding.gradientColors.length >= 5 ? 'none' : '';
+  addBtn.style.display = binding.gradientColors.length >= 5 ? 'none' : '';
+}
+
+function renderGradientStops() {
+  renderGradientStopsFor(state.binding, 'grad-stops-row', 'add-grad-stop', () => {
+    if (state.currentPool.length) applyBorderBinding();
+  });
+}
+
+function renderJrGradientStops() {
+  renderGradientStopsFor(state.jellyRoll.binding, 'jr-grad-stops-row', 'jr-add-grad-stop', () => {
+    if (state.jellyRoll.currentBlocks.length) applyJrBorderBinding();
+  });
 }
 
 // Initialize gradient stops UI on load
 renderGradientStops();
+renderJrGradientStops();
 
 function hidePreview() {
   previewSection.style.display = 'none';
@@ -707,10 +864,18 @@ async function saveCurrentLayout() {
     : `${cols}×${rows}`;
   const label = `${cols}×${rows} · ${modePart} #${state.saveCounter}`;
 
-  const thumbnail = await generateThumbnail(pool, cols, rows);
+  let thumbnail;
+  if (state.cpLayoutMode === 'pinwheel') {
+    thumbnail = await generatePinwheelThumbnail(pool, cols, rows);
+  } else {
+    thumbnail = await generateThumbnail(pool, cols, rows);
+  }
   const id = Date.now();
 
-  state.savedLayouts.push({ id, label, pool, cols, rows, thumbnail });
+  state.savedLayouts.push({
+    id, label, pool, cols, rows, thumbnail, layoutMode: state.cpLayoutMode,
+    pairPool: state.cpLayoutMode === 'pinwheel' ? [...state.pinwheelPairPool] : [],
+  });
   state.activeCardId = id;
 
   renderSavedPanel();
@@ -783,14 +948,24 @@ function renderSavedPanel() {
 }
 
 // ─── Load Saved Layout ─────────────────────────────────────
-function loadSavedLayout(id) {
+async function loadSavedLayout(id) {
   const layout = state.savedLayouts.find(l => l.id === id);
   if (!layout) return;
   state.activeCardId = id;
-  renderGrid(layout.pool, layout.cols, layout.rows);
+  if (layout.layoutMode === 'pinwheel') {
+    state.cpLayoutMode = 'pinwheel';
+    state.pinwheelPairPool = layout.pairPool || [];
+    document.getElementById('pinwheel-bg-row').style.display = 'flex';
+    document.getElementById('pinwheel-btn').classList.add('active-mode');
+    await renderPinwheelGrid(layout.pool, layout.cols, layout.rows);
+  } else {
+    state.cpLayoutMode = 'standard';
+    document.getElementById('pinwheel-bg-row').style.display = 'none';
+    document.getElementById('pinwheel-btn').classList.remove('active-mode');
+    renderGrid(layout.pool, layout.cols, layout.rows);
+  }
   gridInfo.textContent = layout.label + '  (loaded)';
   renderSavedPanel(); // refresh active-card highlight
-  previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ─── Color Extraction ──────────────────────────────────────
@@ -1135,17 +1310,10 @@ function makeCalcTable(headers) {
   return { table, tbody };
 }
 
-function syncCalcBorderInches() {
-  const c = state.calc;
-  while (c.borderInches.length < state.borders.length) c.borderInches.push(3);
-  c.borderInches.length = state.borders.length;
-}
-
 function renderCalculator() {
   const section = document.getElementById('calc-section');
   if (!state.currentPool.length) { section.style.display = 'none'; return; }
   section.style.display = 'block';
-  syncCalcBorderInches();
 
   const c   = state.calc;
   const { cols, rows, borders, binding, currentPool } = state;
@@ -1157,8 +1325,7 @@ function renderCalculator() {
   let qH = rows * blockSizeIn;
   const blockQW = qW, blockQH = qH;
 
-  const borderInchesSnapshot = c.borderInches.map((v, i) => parseFloat(v) || 0);
-  for (const bIn of borderInchesSnapshot) { qW += bIn * 2; qH += bIn * 2; }
+  for (const b of borders) { qW += (b.widthIn || 0) * 2; qH += (b.widthIn || 0) * 2; }
 
   const results = document.getElementById('calc-results');
   results.innerHTML = '';
@@ -1225,11 +1392,11 @@ function renderCalculator() {
   // ── Card: Border Fabric ────────────────────────────────────
   if (borders.length > 0) {
     const borderCard = makeCalcCard('Border Fabric Needed');
-    const { table: brdT, tbody: brdB } = makeCalcTable(['', 'Layer', 'Fabric', 'Width (in)', 'Yardage']);
+    const { table: brdT, tbody: brdB } = makeCalcTable(['', 'Layer', 'Fabric', 'Width', 'Yardage']);
 
     let runW = blockQW, runH = blockQH;
     borders.forEach((border, idx) => {
-      const bIn = borderInchesSnapshot[idx];
+      const bIn = border.widthIn || 0;
       const yards = borderYardsNeeded(bIn, runW, runH, sa, wof);
 
       const thumbEl = border.image
@@ -1237,22 +1404,12 @@ function renderCalculator() {
         : `<div class="no-fabric-thumb">?</div>`;
 
       const tr = brdB.insertRow();
-      const inchInputId = `calc-border-in-${idx}`;
       tr.innerHTML = `
         <td>${thumbEl}</td>
         <td>Layer ${idx + 1}</td>
         <td style="font-size:0.8rem;color:var(--text-muted)">${border.image ? border.image.name : 'No fabric selected'}</td>
-        <td><input type="number" id="${inchInputId}" class="calc-inch-input"
-             value="${bIn}" min="0.5" max="36" step="0.5" /></td>
+        <td>${bIn}"</td>
         <td class="yardage-cell">${formatYards(yards)}</td>`;
-
-      // Live update when inch value changes
-      setTimeout(() => {
-        document.getElementById(inchInputId)?.addEventListener('input', e => {
-          state.calc.borderInches[idx] = parseFloat(e.target.value) || 0;
-          renderCalculator();
-        });
-      }, 0);
 
       runW += bIn * 2;
       runH += bIn * 2;
@@ -1263,7 +1420,7 @@ function renderCalculator() {
     brdBody.appendChild(brdT);
     const brdNote = document.createElement('p');
     brdNote.className = 'calc-disclaimer';
-    brdNote.textContent = 'Enter each border width in inches as it will be cut. Yardage includes extra for seams and corners.';
+    brdNote.textContent = 'Border widths set via the controls above. Yardage includes extra for seams and corners.';
     brdBody.appendChild(brdNote);
     borderCard.appendChild(brdBody);
     results.appendChild(borderCard);
@@ -1365,14 +1522,1152 @@ function shuffle(arr) {
 
 // Re-render on option toggle — preserve current pool/arrangement
 function reRenderIfActive() {
-  if (state.currentPool.length) renderGrid(state.currentPool, state.cols, state.rows);
+  if (!state.currentPool.length) return;
+  if (state.cpLayoutMode === 'pinwheel') {
+    renderPinwheelGrid(state.currentPool, state.cols, state.rows);
+  } else {
+    renderGrid(state.currentPool, state.cols, state.rows);
+  }
 }
 seamsCheck.addEventListener('change', reRenderIfActive);
 squareCheck.addEventListener('change', reRenderIfActive);
 
-// Refit to window on resize
+// Refit to window on resize (both tabs)
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(reRenderIfActive, 250);
+  resizeTimer = setTimeout(() => {
+    reRenderIfActive();
+    jrReRenderIfActive();
+  }, 250);
 });
+
+// ═══════════════════════════════════════════════════════════
+// ─── TAB SWITCHING ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.hidden = true);
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab + '-tab').hidden = false;
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// ─── CHARM PACK — PINWHEEL ─────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+document.getElementById('pinwheel-btn').addEventListener('click', () => {
+  state.cpLayoutMode = 'pinwheel';
+  document.getElementById('pinwheel-bg-row').style.display = 'flex';
+  document.getElementById('pinwheel-btn').classList.add('active-mode');
+  generatePinwheelLayout();
+});
+
+document.getElementById('pinwheel-bg-color').addEventListener('input', e => {
+  state.pinwheelBg = e.target.value;
+  if (state.cpLayoutMode === 'pinwheel') {
+    const grid = document.getElementById('quilt-grid');
+    if (grid.classList.contains('show-seams')) grid.style.background = state.pinwheelBg;
+  }
+});
+
+function generatePinwheelLayout() {
+  if (!state.images.length) return;
+
+  updateDimState();
+  const { cols, rows, images, multiplier } = state;
+  const total = cols * rows;
+
+  let base = [];
+  for (let i = 0; i < multiplier; i++) base.push(...images);
+  while (base.length < total) base.push(...images);
+
+  let pool = base.slice(0, total);
+  // Secondary pool: offset by half so paired triangles use different fabrics
+  const half = Math.ceil(base.length / 2);
+  let pool2 = [...base.slice(half), ...base.slice(0, half)].slice(0, total);
+
+  if (shuffleCheck.checked) {
+    pool  = shuffle([...pool]);
+    pool2 = shuffle([...pool2]);
+  }
+
+  state.pinwheelPairPool = pool2;
+  renderPinwheelGrid(pool, cols, rows);
+}
+
+// Canvas polygon fractions [0-1] for each (row%2, col%2) quadrant
+const PINWHEEL_POLYS = {
+  '0,0': [[1,0],[1,1],[0,1]],   // lower-right
+  '0,1': [[0,0],[0,1],[1,1]],   // lower-left
+  '1,0': [[0,0],[1,0],[1,1]],   // upper-right
+  '1,1': [[0,0],[1,0],[0,1]],   // upper-left
+};
+const PINWHEEL_COMPLEMENT_POLYS = {
+  '0,0': [[0,0],[1,0],[0,1]],   // upper-left
+  '0,1': [[0,0],[1,0],[1,1]],   // upper-right
+  '1,0': [[0,0],[0,1],[1,1]],   // lower-left
+  '1,1': [[1,0],[1,1],[0,1]],   // lower-right
+};
+
+function drawPinwheelCell(ctx, size, primEl, secEl, clipKey) {
+  const tri = (el, poly) => {
+    ctx.save();
+    ctx.beginPath();
+    poly.forEach(([px, py], i) => {
+      i === 0 ? ctx.moveTo(px * size, py * size) : ctx.lineTo(px * size, py * size);
+    });
+    ctx.closePath();
+    ctx.clip();
+    if (el) {
+      const s = Math.min(el.naturalWidth, el.naturalHeight);
+      ctx.drawImage(el, (el.naturalWidth - s) / 2, (el.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+    } else {
+      ctx.fillStyle = '#bbb';
+      ctx.fillRect(0, 0, size, size);
+    }
+    ctx.restore();
+  };
+  tri(secEl, PINWHEEL_COMPLEMENT_POLYS[clipKey]);
+  tri(primEl, PINWHEEL_POLYS[clipKey]);
+}
+
+async function renderPinwheelGrid(pool, cols, rows) {
+  state.currentPool = [...pool];
+  state.cols = cols;
+  state.rows = rows;
+  state.cpLayoutMode = 'pinwheel';
+
+  const cellPx = computeCellPx(cols, rows);
+  state.lastCellPx = cellPx;
+
+  const grid = document.getElementById('quilt-grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cellPx}px)`;
+  grid.style.width = 'fit-content';
+  grid.style.maxWidth = '';
+  grid.className = 'quilt-grid ' + (seamsCheck.checked ? 'show-seams' : 'no-seams');
+  // Use pinwheelBg as seam gap color in pinwheel mode
+  grid.style.background = seamsCheck.checked ? state.pinwheelBg : '';
+
+  const pairPool = state.pinwheelPairPool;
+
+  // Pre-load all unique images
+  const uniqueUrls = new Set(pool.map(i => i.dataUrl));
+  pairPool.forEach(img => img && uniqueUrls.add(img.dataUrl));
+  const imgMap = new Map();
+  await Promise.all([...uniqueUrls].map(url => new Promise(res => {
+    const el = new Image();
+    el.onload = () => { imgMap.set(url, el); res(); };
+    el.onerror = () => res();
+    el.src = url;
+  })));
+  state.pinwheelImgMap = imgMap;
+
+  pool.forEach((img, i) => {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const clipKey = `${row % 2},${col % 2}`;
+    const secImg = pairPool[i] || img;
+
+    const canvas = document.createElement('canvas');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(cellPx * dpr);
+    canvas.height = Math.round(cellPx * dpr);
+    canvas.style.width = cellPx + 'px';
+    canvas.style.height = cellPx + 'px';
+    canvas.className = 'quilt-cell pinwheel-cell';
+    canvas.dataset.index = i;
+    canvas.draggable = true;
+    canvas.title = img.name;
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    drawPinwheelCell(ctx, cellPx, imgMap.get(img.dataUrl), imgMap.get(secImg.dataUrl), clipKey);
+    grid.appendChild(canvas);
+  });
+
+  addPinwheelDragSwap();
+  applyBorderBinding();
+  renderCalculator();
+
+  gridInfo.textContent = `${cols} columns × ${rows} rows — ${pool.length} blocks (pinwheel)`;
+  previewSection.style.display = 'block';
+}
+
+function addPinwheelDragSwap() {
+  let dragSrcIndex = null;
+
+  quiltGrid.querySelectorAll('.pinwheel-cell[data-index]').forEach(cell => {
+    cell.addEventListener('dragstart', e => {
+      dragSrcIndex = parseInt(cell.dataset.index, 10);
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => cell.classList.add('dragging'), 0);
+    });
+
+    cell.addEventListener('dragend', () => {
+      cell.classList.remove('dragging');
+      quiltGrid.querySelectorAll('.pinwheel-cell').forEach(c => c.classList.remove('drag-over'));
+    });
+
+    cell.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      quiltGrid.querySelectorAll('.pinwheel-cell').forEach(c => c.classList.remove('drag-over'));
+      if (parseInt(cell.dataset.index, 10) !== dragSrcIndex) cell.classList.add('drag-over');
+    });
+
+    cell.addEventListener('dragleave', () => cell.classList.remove('drag-over'));
+
+    cell.addEventListener('drop', e => {
+      e.preventDefault();
+      cell.classList.remove('drag-over');
+      const dropIndex = parseInt(cell.dataset.index, 10);
+      if (dragSrcIndex === null || dropIndex === dragSrcIndex) return;
+
+      const srcIdx = dragSrcIndex;
+      dragSrcIndex = null;
+
+      const pool = state.currentPool;
+      const pair = state.pinwheelPairPool;
+      [pool[srcIdx], pool[dropIndex]] = [pool[dropIndex], pool[srcIdx]];
+      [pair[srcIdx], pair[dropIndex]] = [pair[dropIndex], pair[srcIdx]];
+
+      // Redraw only the two swapped cells
+      [srcIdx, dropIndex].forEach(idx => {
+        const c = quiltGrid.querySelector(`.pinwheel-cell[data-index="${idx}"]`);
+        if (!c) return;
+        const row = Math.floor(idx / state.cols), col = idx % state.cols;
+        const clipKey = `${row % 2},${col % 2}`;
+        const ctx = c.getContext('2d');
+        const cssSize = parseInt(c.style.width) || c.width;
+        const dpr = window.devicePixelRatio || 1;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cssSize, cssSize);
+        const img = pool[idx];
+        const secImg = pair[idx] || img;
+        drawPinwheelCell(ctx, cssSize, state.pinwheelImgMap?.get(img.dataUrl), state.pinwheelImgMap?.get(secImg.dataUrl), clipKey);
+      });
+    });
+  });
+}
+
+async function generatePinwheelThumbnail(pool, cols, rows) {
+  const THUMB_W = 236;
+  const gap = 1;
+  const cellSize = Math.max(Math.floor((THUMB_W - gap * (cols + 1)) / cols), 4);
+  const w = cellSize * cols + gap * (cols + 1);
+  const h = cellSize * rows + gap * (rows + 1);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#7b5e3a';
+  ctx.fillRect(0, 0, w, h);
+
+  const pairPool = state.pinwheelPairPool;
+
+  // Load unique images
+  const uniqueUrls = new Set(pool.map(i => i.dataUrl));
+  pairPool.forEach(img => img && uniqueUrls.add(img.dataUrl));
+  const imgMap = new Map();
+  await Promise.all([...uniqueUrls].map(url => new Promise(res => {
+    const el = new Image();
+    el.onload = () => { imgMap.set(url, el); res(); };
+    el.onerror = () => res();
+    el.src = url;
+  })));
+
+  pool.forEach((img, i) => {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const cx = gap + col * (cellSize + gap);
+    const cy = gap + row * (cellSize + gap);
+    const clipKey = `${row % 2},${col % 2}`;
+    const secImg = pairPool[i] || img;
+
+    // Translate context to cell origin, draw, then restore
+    ctx.save();
+    ctx.translate(cx, cy);
+    drawPinwheelCell(ctx, cellSize, imgMap.get(img.dataUrl), imgMap.get(secImg.dataUrl), clipKey);
+    ctx.restore();
+  });
+
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.font = 'bold 10px sans-serif';
+  const txt = 'Pinwheel';
+  const bw = ctx.measureText(txt).width + 8;
+  ctx.fillRect(2, h - 16, bw, 14);
+  ctx.fillStyle = 'white';
+  ctx.fillText(txt, 6, h - 5);
+
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+// ═══════════════════════════════════════════════════════════
+// ─── JELLY ROLL TAB ────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+// ── JR Upload ──
+const jrDropZone   = document.getElementById('jr-drop-zone');
+const jrFileInput  = document.getElementById('jr-file-input');
+const jrImageCount = document.getElementById('jr-image-count');
+const jrClearBtn   = document.getElementById('jr-clear-btn');
+const jrControls   = document.getElementById('jr-controls');
+
+jrDropZone.addEventListener('click', e => {
+  if (e.target.closest('label') || e.target === jrFileInput) return;
+  jrFileInput.click();
+});
+jrDropZone.addEventListener('dragover', e => { e.preventDefault(); jrDropZone.classList.add('drag-over'); });
+jrDropZone.addEventListener('dragleave', () => jrDropZone.classList.remove('drag-over'));
+jrDropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  jrDropZone.classList.remove('drag-over');
+  handleJrFiles(e.dataTransfer.files);
+});
+jrFileInput.addEventListener('change', () => handleJrFiles(jrFileInput.files));
+jrClearBtn.addEventListener('click', () => {
+  state.jellyRoll.strips = [];
+  jrFileInput.value = '';
+  jrImageCount.textContent = '0 strips loaded';
+  jrClearBtn.style.display = 'none';
+  jrControls.style.display = 'none';
+  document.getElementById('jr-preview-section').style.display = 'none';
+  document.getElementById('jr-calc-section').style.display = 'none';
+  document.getElementById('jr-drop-zone').style.display = '';
+  document.getElementById('jr-upload-compact').style.display = 'none';
+});
+
+document.getElementById('jr-upload-replace-btn').addEventListener('click', () => {
+  jrClearBtn.click();
+});
+
+function handleJrFiles(fileList) {
+  const files = [...fileList].filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+
+  const readers = files.map(file => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => resolve({ name: file.name, dataUrl: e.target.result });
+    reader.readAsDataURL(file);
+  }));
+
+  jrImageCount.textContent = `Analyzing ${files.length} strip${files.length !== 1 ? 's' : ''}…`;
+
+  Promise.all(readers).then(async newStrips => {
+    for (const s of newStrips) {
+      s.color = await extractAvgColor(s.dataUrl);
+    }
+    state.jellyRoll.strips.push(...newStrips);
+    const count = state.jellyRoll.strips.length;
+    jrImageCount.textContent = `${count} strip${count !== 1 ? 's' : ''} loaded`;
+    jrClearBtn.style.display = 'inline-block';
+    document.getElementById('jr-drop-zone').style.display = 'none';
+    const compact = document.getElementById('jr-upload-compact');
+    compact.style.display = 'flex';
+    document.getElementById('jr-upload-compact-count').textContent =
+      `${count} strip${count !== 1 ? 's' : ''} loaded`;
+    jrControls.style.display = 'flex';
+    jrRebuildDimensionOptions();
+    buildJrImagePickers();
+  });
+}
+
+// ── JR Dimension Logic ──
+function jrRebuildDimensionOptions() {
+  const jr = state.jellyRoll;
+  const total = jr.strips.length * jr.multiplier;
+  const pairs = getFactorPairs(total);
+  const sel = document.getElementById('jr-dimension-select');
+  sel.innerHTML = '';
+  pairs.forEach(([cols, rows]) => {
+    const opt = document.createElement('option');
+    opt.value = `${cols}x${rows}`;
+    opt.textContent = `${cols} × ${rows}  (${cols} cols, ${rows} rows)`;
+    sel.appendChild(opt);
+  });
+  const best = chooseBestDefault(pairs);
+  sel.value = `${best[0]}x${best[1]}`;
+  jr.cols = best[0];
+  jr.rows = best[1];
+  document.getElementById('jr-dim-label').textContent = `= ${total} blocks total`;
+}
+
+document.getElementById('jr-dimension-select').addEventListener('change', () => {
+  const [cols, rows] = document.getElementById('jr-dimension-select').value.split('x').map(Number);
+  state.jellyRoll.cols = cols;
+  state.jellyRoll.rows = rows;
+  document.getElementById('jr-dim-label').textContent = `= ${cols * rows} blocks total`;
+});
+
+// ── JR Multiplier ──
+document.getElementById('jr-mult-slider').addEventListener('input', e => {
+  state.jellyRoll.multiplier = parseInt(e.target.value, 10);
+  const base = state.jellyRoll.strips.length;
+  const total = base * state.jellyRoll.multiplier;
+  document.getElementById('jr-mult-label').textContent = state.jellyRoll.multiplier === 1
+    ? `1× — ${total} strip${total !== 1 ? 's' : ''}`
+    : `${state.jellyRoll.multiplier}× — ${total} blocks`;
+  jrRebuildDimensionOptions();
+});
+
+// ── JR Strips per Block ──
+document.getElementById('jr-strips-slider').addEventListener('input', e => {
+  state.jellyRoll.stripsPerBlock = parseInt(e.target.value, 10);
+  document.getElementById('jr-strips-label').textContent = `${state.jellyRoll.stripsPerBlock} strips per block`;
+});
+
+// ── JR Layout Buttons ──
+document.getElementById('jr-railfence-btn').addEventListener('click', () => generateJrLayout('railfence'));
+document.getElementById('jr-optimize-btn').addEventListener('click', jrOptimizeLayout);
+document.getElementById('jr-checker-btn').addEventListener('click', jrCheckerLayout);
+document.getElementById('jr-hue-diag-btn').addEventListener('click', jrHueDiagonalLayout);
+document.getElementById('jr-shuffle-btn').addEventListener('click', () => {
+  document.getElementById('jr-shuffle-check').checked = true;
+  generateJrLayout(state.jellyRoll.layoutMode);
+});
+document.getElementById('jr-stringpinwheel-btn').addEventListener('click', () => generateJrLayout('stringpinwheel'));
+
+function generateJrLayout(mode) {
+  const jr = state.jellyRoll;
+  if (!jr.strips.length) return;
+
+  // Read current dimension selection
+  const selVal = document.getElementById('jr-dimension-select').value;
+  if (selVal) {
+    const [c, r] = selVal.split('x').map(Number);
+    jr.cols = c;
+    jr.rows = r;
+  }
+  const { cols, rows, strips, multiplier, stripsPerBlock } = jr;
+  const totalBlocks = cols * rows;
+
+  // Build pool of strips
+  let pool = [];
+  for (let i = 0; i < multiplier; i++) pool.push(...strips);
+  while (pool.length < totalBlocks * stripsPerBlock) pool.push(...strips);
+
+  if (document.getElementById('jr-shuffle-check').checked) {
+    pool = shuffle([...pool]);
+  }
+
+  // Group into blocks
+  const blocks = [];
+  for (let b = 0; b < totalBlocks; b++) {
+    const blockStrips = [];
+    for (let s = 0; s < stripsPerBlock; s++) {
+      blockStrips.push(pool[(b * stripsPerBlock + s) % pool.length]);
+    }
+    blocks.push({ strips: blockStrips });
+  }
+
+  jr.currentBlocks = blocks;
+  jr.layoutMode = mode;
+
+  if (mode === 'railfence') {
+    renderJrRailFenceGrid(blocks, cols, rows);
+  } else {
+    renderJrStringPinwheelGrid(blocks, cols, rows);
+  }
+}
+
+// ── JR Re-render ──
+function jrReRenderIfActive() {
+  const { currentBlocks, cols, rows, layoutMode } = state.jellyRoll;
+  if (!currentBlocks.length) return;
+  if (layoutMode === 'railfence') renderJrRailFenceGrid(currentBlocks, cols, rows);
+  else renderJrStringPinwheelGrid(currentBlocks, cols, rows);
+}
+
+// ── JR Seams ──
+document.getElementById('jr-seams-check').addEventListener('change', () => {
+  if (state.jellyRoll.currentBlocks.length) jrReRenderIfActive();
+});
+
+// ── Compute JR cell size ──
+function computeJrCellPx(cols, rows) {
+  const availW = Math.max(window.innerWidth - 64, 320);
+  const availH = Math.max(window.innerHeight - 400, 200);
+  return Math.max(Math.min(Math.floor(availW / cols), Math.floor(availH / rows), 120), 20);
+}
+
+// ── Rail Fence Render ──
+function renderJrRailFenceGrid(blocks, cols, rows) {
+  const jr = state.jellyRoll;
+  const cellPx = computeJrCellPx(cols, rows);
+  jr.lastCellPx = cellPx;
+
+  const grid = document.getElementById('jr-quilt-grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cellPx}px)`;
+  grid.style.width = 'fit-content';
+
+  const showSeams = document.getElementById('jr-seams-check').checked;
+  grid.className = 'quilt-grid ' + (showSeams ? 'show-seams' : 'no-seams');
+
+  blocks.forEach((block, i) => {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const isV = (row + col) % 2 === 1;
+
+    const cell = document.createElement('div');
+    cell.className = `jr-cell rail-block ${isV ? 'rail-v' : 'rail-h'}`;
+    cell.style.width = cellPx + 'px';
+    cell.style.height = cellPx + 'px';
+    cell.dataset.index = i;
+
+    const slotW = cellPx / block.strips.length; // width of each strip slot in a rail-v block
+
+    block.strips.forEach(strip => {
+      const stripEl = document.createElement('div');
+      stripEl.className = 'rail-strip';
+
+      const img = document.createElement('img');
+      img.src = strip.dataUrl;
+      img.alt = '';
+      img.draggable = false;
+
+      if (isV) {
+        // Slot is slotW wide × cellPx tall.
+        // Size the img as cellPx wide × slotW tall, center it, rotate 90°
+        // so the fabric pattern runs top-to-bottom instead of being a zoomed slice.
+        img.style.cssText = `width:${cellPx}px;height:${slotW}px;object-fit:cover;` +
+          `position:absolute;top:50%;left:50%;` +
+          `transform:translate(-50%,-50%) rotate(90deg);`;
+      } else {
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      }
+
+      stripEl.appendChild(img);
+      cell.appendChild(stripEl);
+    });
+
+    grid.appendChild(cell);
+  });
+
+  addJrDragSwap();
+  applyJrBorderBinding();
+
+  document.getElementById('jr-preview-section').style.display = 'block';
+  document.getElementById('jr-grid-info').textContent =
+    `${cols} columns × ${rows} rows — ${blocks.length} blocks (rail fence)`;
+  document.getElementById('jr-calc-section').style.display = 'block';
+  renderJrCalculator();
+}
+
+// ── String Pinwheel Render ──
+async function renderJrStringPinwheelGrid(blocks, cols, rows) {
+  const jr = state.jellyRoll;
+  const cellPx = computeJrCellPx(cols, rows);
+  jr.lastCellPx = cellPx;
+
+  // Pre-load unique images
+  const uniqueUrls = new Set();
+  blocks.forEach(b => b.strips.forEach(s => uniqueUrls.add(s.dataUrl)));
+  const imgMap = new Map();
+  await Promise.all([...uniqueUrls].map(url => new Promise(res => {
+    const el = new Image();
+    el.onload = () => { imgMap.set(url, el); res(); };
+    el.onerror = () => res();
+    el.src = url;
+  })));
+
+  const grid = document.getElementById('jr-quilt-grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cellPx}px)`;
+  grid.style.width = 'fit-content';
+
+  const showSeams = document.getElementById('jr-seams-check').checked;
+  grid.className = 'quilt-grid ' + (showSeams ? 'show-seams' : 'no-seams');
+
+  blocks.forEach((block, i) => {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const isFlipped = (row + col) % 2 === 1;
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'jr-cell';
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(cellPx * dpr);
+    canvas.height = Math.round(cellPx * dpr);
+    canvas.style.width = cellPx + 'px';
+    canvas.style.height = cellPx + 'px';
+    canvas.dataset.index = i;
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    drawStringPinwheelBlock(ctx, cellPx, block.strips, imgMap, isFlipped);
+
+    grid.appendChild(canvas);
+  });
+
+  addJrDragSwap();
+  applyJrBorderBinding();
+
+  document.getElementById('jr-preview-section').style.display = 'block';
+  document.getElementById('jr-grid-info').textContent =
+    `${cols} columns × ${rows} rows — ${blocks.length} blocks (string pinwheel)`;
+  document.getElementById('jr-calc-section').style.display = 'block';
+  renderJrCalculator();
+}
+
+function drawStringPinwheelBlock(ctx, size, strips, imgMap, isFlipped) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, size, size);
+  ctx.clip();
+  ctx.translate(size / 2, size / 2);
+  ctx.rotate(isFlipped ? -Math.PI / 4 : Math.PI / 4);
+  // +2px buffer so floating-point can't leave bare canvas corners unpainted
+  const diag = size * Math.sqrt(2) + 2;
+  const sw = diag / strips.length;
+  strips.forEach((strip, i) => {
+    const x = -diag / 2 + i * sw;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, -diag / 2, sw, diag);
+    ctx.clip();
+    const imgEl = imgMap.get(strip.dataUrl);
+    if (imgEl) {
+      const iw = imgEl.naturalWidth, ih = imgEl.naturalHeight;
+      const scale = Math.max(sw / iw, diag / ih);
+      const dw = iw * scale, dh = ih * scale;
+      ctx.drawImage(imgEl, x + (sw - dw) / 2, -diag / 2 + (diag - dh) / 2, dw, dh);
+    } else {
+      const c = strip.color || [180, 180, 180];
+      ctx.fillStyle = `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`;
+      ctx.fillRect(x, -diag / 2, sw, diag);
+    }
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+// ── JR Drag-to-Swap ──
+function addJrDragSwap() {
+  let dragSrcIndex = null;
+  const jrGrid = document.getElementById('jr-quilt-grid');
+
+  jrGrid.querySelectorAll('.jr-cell[data-index]').forEach(cell => {
+    cell.draggable = true;
+
+    cell.addEventListener('dragstart', e => {
+      dragSrcIndex = parseInt(cell.dataset.index, 10);
+      cell.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    cell.addEventListener('dragend', () => {
+      cell.classList.remove('dragging');
+      jrGrid.querySelectorAll('.jr-cell').forEach(c => c.classList.remove('drag-over'));
+    });
+
+    cell.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      jrGrid.querySelectorAll('.jr-cell').forEach(c => c.classList.remove('drag-over'));
+      if (parseInt(cell.dataset.index, 10) !== dragSrcIndex) cell.classList.add('drag-over');
+    });
+
+    cell.addEventListener('dragleave', () => cell.classList.remove('drag-over'));
+
+    cell.addEventListener('drop', e => {
+      e.preventDefault();
+      cell.classList.remove('drag-over');
+      const dropIndex = parseInt(cell.dataset.index, 10);
+      if (dragSrcIndex === null || dropIndex === dragSrcIndex) return;
+
+      const srcIdx = dragSrcIndex;
+      dragSrcIndex = null;
+
+      const blocks = state.jellyRoll.currentBlocks;
+      [blocks[srcIdx], blocks[dropIndex]] = [blocks[dropIndex], blocks[srcIdx]];
+      jrReRenderIfActive();
+    });
+  });
+}
+
+// ── JR Color Optimization ──
+function jrBlockColor(block) {
+  const colors = block.strips.map(s => s.color).filter(Boolean);
+  if (!colors.length) return [128, 128, 128];
+  const sum = colors.reduce((a, c) => [a[0]+c[0], a[1]+c[1], a[2]+c[2]], [0,0,0]);
+  return sum.map(v => v / colors.length);
+}
+
+function jrOptimizeLayout() {
+  const jr = state.jellyRoll;
+  if (!jr.strips.length) return;
+  if (!jr.currentBlocks.length) generateJrLayout(jr.layoutMode);
+  if (!jr.currentBlocks.length) return;
+
+  const { cols, rows } = jr;
+  const total = cols * rows;
+  const remaining = [...jr.currentBlocks.slice(0, total)];
+  const result = new Array(total).fill(null);
+  result[0] = remaining.splice(0, 1)[0];
+
+  for (let i = 1; i < total; i++) {
+    const row = Math.floor(i / cols), col = i % cols;
+    const neighbors = [];
+    if (row > 0) neighbors.push(result[(row-1)*cols + col]);
+    if (col > 0) neighbors.push(result[i-1]);
+
+    let bestIdx = 0, bestScore = -Infinity;
+    for (let j = 0; j < remaining.length; j++) {
+      const c = jrBlockColor(remaining[j]);
+      const score = neighbors.reduce((sum, n) => sum + colorDist(c, jrBlockColor(n)), 0);
+      if (score > bestScore) { bestScore = score; bestIdx = j; }
+    }
+    result[i] = remaining.splice(bestIdx, 1)[0];
+  }
+
+  jr.currentBlocks = result;
+  jrReRenderIfActive();
+  document.getElementById('jr-grid-info').textContent += '  —  color optimized';
+}
+
+function jrHueDiagonalLayout() {
+  const jr = state.jellyRoll;
+  if (!jr.strips.length) return;
+  if (!jr.currentBlocks.length) generateJrLayout(jr.layoutMode);
+  if (!jr.currentBlocks.length) return;
+
+  const { cols, rows } = jr;
+  const total = cols * rows;
+  const blocks = [...jr.currentBlocks.slice(0, total)];
+  blocks.sort((a, b) => hueOf(jrBlockColor(a)) - hueOf(jrBlockColor(b)));
+
+  const numDiags = rows + cols - 1;
+  const diagCells = Array.from({ length: numDiags }, () => []);
+  for (let i = 0; i < total; i++) diagCells[Math.floor(i/cols) + i%cols].push(i);
+
+  const result = new Array(total);
+  let poolIdx = 0;
+  for (let d = 0; d < numDiags; d++) {
+    const cells = diagCells[d];
+    const chunk = blocks.slice(poolIdx, poolIdx + cells.length);
+    poolIdx += cells.length;
+    shuffle(chunk);
+    cells.forEach((cellIdx, i) => { result[cellIdx] = chunk[i]; });
+  }
+
+  jr.currentBlocks = result;
+  jrReRenderIfActive();
+  document.getElementById('jr-grid-info').textContent += '  —  hue diagonal';
+}
+
+function jrCheckerLayout() {
+  const jr = state.jellyRoll;
+  if (!jr.strips.length) return;
+  if (!jr.currentBlocks.length) generateJrLayout(jr.layoutMode);
+  if (!jr.currentBlocks.length) return;
+
+  const { cols, rows } = jr;
+  const total = cols * rows;
+  let lightPos = 0;
+  for (let i = 0; i < total; i++) if ((Math.floor(i/cols) + i%cols) % 2 === 0) lightPos++;
+  const darkPos = total - lightPos;
+
+  const sorted = [...jr.currentBlocks.slice(0, total)].sort(
+    (a, b) => brightness(jrBlockColor(a)) - brightness(jrBlockColor(b))
+  );
+  const darkBucket  = shuffle(sorted.slice(0, darkPos));
+  const lightBucket = shuffle(sorted.slice(darkPos));
+
+  const result = [];
+  let li = 0, di = 0;
+  for (let i = 0; i < total; i++) {
+    if ((Math.floor(i/cols) + i%cols) % 2 === 0) result.push(lightBucket[li++ % lightBucket.length]);
+    else result.push(darkBucket[di++ % darkBucket.length]);
+  }
+
+  jr.currentBlocks = result;
+  jrReRenderIfActive();
+  document.getElementById('jr-grid-info').textContent += '  —  checkerboard (light/dark)';
+}
+
+// ── JR Calculator ──
+function renderJrCalculator() {
+  const section = document.getElementById('jr-calc-section');
+  const jr = state.jellyRoll;
+  if (!jr.currentBlocks.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  const { cols, rows, currentBlocks, stripsPerBlock, calc } = jr;
+  const {
+    fabricWidthIn: backingWof,
+    stripWidthIn,
+    packTotalStrips,
+    packUniqueDesigns,
+    packStripLengthIn,
+  } = calc;
+  const results = document.getElementById('jr-calc-results');
+  results.innerHTML = '';
+
+  // ── Derived measurements ──
+  // Finished strip width = cut width - 0.5" (two ¼" seam allowances)
+  const finishedStripW = stripWidthIn - 0.5;
+  // Block size is determined by how many strips you sew together — not a free input
+  const blockSizeIn = stripsPerBlock * finishedStripW;
+  // Cut block size = sub-cut length from the strip (square block + ½" SA)
+  const cutBlockSize = blockSizeIn + 0.5;
+  // How many sub-cuts fit in one jelly roll strip
+  const subCutsPerStrip = Math.floor(packStripLengthIn / cutBlockSize);
+  const leftoverPerStrip = packStripLengthIn - subCutsPerStrip * cutBlockSize;
+
+  // Total strip slots consumed by this layout
+  const totalStripSlots = cols * rows * stripsPerBlock;
+  // Total jelly roll strips needed to fill the layout
+  const jrStripsNeeded = Math.ceil(totalStripSlots / subCutsPerStrip);
+  // Packs needed
+  const packsNeeded = Math.ceil(jrStripsNeeded / packTotalStrips);
+  const stripsAvailable = packsNeeded * packTotalStrips;
+  const wasteStrips = stripsAvailable - jrStripsNeeded;
+  const totalBlocks = cols * rows;
+
+  // ── Card: Cutting Guide ──
+  const cutCard = makeCalcCard('Cutting Guide');
+  const cutBody = document.createElement('div');
+  cutBody.className = 'calc-card-body cutting-guide';
+
+  const steps = [
+    {
+      n: 1,
+      title: `Cut each strip into <strong>${cutBlockSize}"</strong> pieces`,
+      detail: `A ${stripWidthIn}" × ${packStripLengthIn}" jelly roll strip gives you <strong>${subCutsPerStrip} pieces</strong> per strip` +
+        (leftoverPerStrip > 0.05 ? ` with ${leftoverPerStrip.toFixed(2)}" left over.` : ', no waste.'),
+    },
+    {
+      n: 2,
+      title: `Sew ${stripsPerBlock} pieces together along their long (${cutBlockSize}") edges`,
+      detail: `Each set of ${stripsPerBlock} pieces sews into a <strong>${cutBlockSize}" × ${cutBlockSize}"</strong> block ` +
+        `(finishes at ${blockSizeIn}" × ${blockSizeIn}"). ` +
+        `No math needed — just line up the ${cutBlockSize}" sides and sew.`,
+    },
+    {
+      n: 3,
+      title: `For this layout: cut <strong>${jrStripsNeeded} strips</strong> total`,
+      detail: `${totalBlocks} blocks × ${stripsPerBlock} strips each = ${totalStripSlots} pieces needed. ` +
+        `At ${subCutsPerStrip} cuts per strip, pull <strong>${jrStripsNeeded} strip${jrStripsNeeded !== 1 ? 's' : ''}</strong> from your pack ` +
+        `(${packsNeeded} pack${packsNeeded !== 1 ? 's' : ''})` +
+        (wasteStrips > 0 ? ` — ${wasteStrips} strip${wasteStrips !== 1 ? 's' : ''} leftover.` : '.'),
+    },
+  ];
+
+  steps.forEach(({ n, title, detail }) => {
+    const row = document.createElement('div');
+    row.className = 'cutting-step';
+    row.innerHTML = `<div class="cutting-step-num">${n}</div>
+      <div class="cutting-step-body">
+        <div class="cutting-step-title">${title}</div>
+        <div class="cutting-step-detail">${detail}</div>
+      </div>`;
+    cutBody.appendChild(row);
+  });
+
+  cutCard.appendChild(cutBody);
+  results.appendChild(cutCard);
+
+  // ── Card: Quilt Dimensions ──
+  const qWin = cols * blockSizeIn;
+  const qHin = rows * blockSizeIn;
+  const dimCard = makeCalcCard('Quilt Dimensions');
+  const { table: dimT, tbody: dimB } = makeCalcTable(['', 'Width', 'Height']);
+  const dimTotRow = dimB.insertRow();
+  dimTotRow.className = 'total-row';
+  dimTotRow.innerHTML = `<td>Finished quilt top</td>
+    <td><strong>${qWin}"</strong> (${(qWin/36).toFixed(2)} yd)</td>
+    <td><strong>${qHin}"</strong> (${(qHin/36).toFixed(2)} yd)</td>`;
+  const dimBody = document.createElement('div');
+  dimBody.className = 'calc-card-body';
+  dimBody.appendChild(dimT);
+  dimCard.appendChild(dimBody);
+  results.appendChild(dimCard);
+
+  // ── Card: Jelly Roll Pack Usage ──
+  const packCard = makeCalcCard('Jelly Roll Pack Usage');
+  const { table: pkT, tbody: pkB } = makeCalcTable(['', 'Value']);
+  const pkRows = [
+    ['JR strips needed for this layout', `${jrStripsNeeded} strip${jrStripsNeeded !== 1 ? 's' : ''}`],
+    ['Strips per pack', `${packTotalStrips} (${packUniqueDesigns} unique designs)`],
+  ];
+  pkRows.forEach(([label, val]) => {
+    const r = pkB.insertRow();
+    r.innerHTML = `<td>${label}</td><td>${val}</td>`;
+  });
+  const pkTotRow = pkB.insertRow();
+  pkTotRow.className = 'total-row';
+  pkTotRow.innerHTML = `<td>Packs needed</td><td><strong>${packsNeeded} pack${packsNeeded !== 1 ? 's' : ''}</strong>`;
+  if (wasteStrips > 0) pkTotRow.innerHTML += ` <span class="calc-note-inline">(${wasteStrips} strip${wasteStrips !== 1 ? 's' : ''} leftover)</span>`;
+  pkTotRow.innerHTML += `</td>`;
+  const pkBody = document.createElement('div');
+  pkBody.className = 'calc-card-body';
+  pkBody.appendChild(pkT);
+  // Fabric in the pack
+  const packSqIn = packTotalStrips * stripWidthIn * packStripLengthIn;
+  const packNote = document.createElement('p');
+  packNote.className = 'calc-disclaimer';
+  packNote.textContent = `1 pack = ${packTotalStrips} strips × ${stripWidthIn}" × ${packStripLengthIn}" = ${(packSqIn / 144).toFixed(1)} sq ft of fabric total.`;
+  pkBody.appendChild(packNote);
+  packCard.appendChild(pkBody);
+  results.appendChild(packCard);
+
+  // ── Card: Strip Usage by Design ──
+  const stripCountMap = new Map();
+  currentBlocks.forEach(block => {
+    block.strips.forEach(strip => {
+      stripCountMap.set(strip.dataUrl, (stripCountMap.get(strip.dataUrl) || 0) + 1);
+    });
+  });
+  const usageCard = makeCalcCard('Strip Usage by Design');
+  const { table: usT, tbody: usB } = makeCalcTable(['', 'Strip', 'Slots used', 'Strips cut']);
+  stripCountMap.forEach((slotCount, dataUrl) => {
+    const strip = jr.strips.find(s => s.dataUrl === dataUrl) || { name: 'unknown', dataUrl };
+    const stripsCut = Math.ceil(slotCount / subCutsPerStrip);
+    const tr = usB.insertRow();
+    tr.innerHTML = `<td><img src="${strip.dataUrl}" class="calc-thumb" alt="" /></td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${strip.name}">${strip.name}</td>
+      <td>${slotCount}</td>
+      <td>${stripsCut}</td>`;
+  });
+  const usTotRow = usB.insertRow();
+  usTotRow.className = 'total-row';
+  usTotRow.innerHTML = `<td colspan="2">Total</td><td>${totalStripSlots} slots</td><td>${jrStripsNeeded} strips</td>`;
+  const usBody = document.createElement('div');
+  usBody.className = 'calc-card-body';
+  usBody.appendChild(usT);
+  usageCard.appendChild(usBody);
+  results.appendChild(usageCard);
+
+  // ── Card: Backing & Batting ──
+  const backW = qWin + 8;
+  const backH = qHin + 8;
+  let backYards, backNote;
+  if (backW <= backingWof) {
+    backYards = backH / 36;
+    backNote = '1 panel (fits within WOF)';
+  } else if (backW <= backingWof * 2 - 1) {
+    backYards = (backH * 2) / 36;
+    backNote = '2 panels seamed side by side';
+  } else {
+    backYards = (backH * 3) / 36;
+    backNote = '3 panels seamed side by side';
+  }
+  const backCard = makeCalcCard('Backing & Batting');
+  const { table: backT, tbody: backB } = makeCalcTable(['', 'Dimensions', 'Yardage', 'Notes']);
+  const backRow = backB.insertRow();
+  backRow.innerHTML = `<td>Backing fabric</td>
+    <td>${backW.toFixed(1)}" × ${backH.toFixed(1)}"</td>
+    <td class="yardage-cell">${formatYards(backYards)}</td>
+    <td class="calc-note-cell">${backNote}</td>`;
+  const battRow = backB.insertRow();
+  battRow.innerHTML = `<td>Batting</td>
+    <td>${backW.toFixed(1)}" × ${backH.toFixed(1)}"</td>
+    <td class="yardage-cell calc-note-cell" colspan="2">Match backing dimensions</td>`;
+  const backBody = document.createElement('div');
+  backBody.className = 'calc-card-body';
+  backBody.appendChild(backT);
+  backCard.appendChild(backBody);
+  results.appendChild(backCard);
+}
+
+// Wire up JR calc inputs
+document.getElementById('jr-calc-wof').addEventListener('input', e => {
+  state.jellyRoll.calc.fabricWidthIn = parseFloat(e.target.value) || 42;
+  if (state.jellyRoll.currentBlocks.length) renderJrCalculator();
+});
+document.getElementById('jr-calc-pack-strips').addEventListener('input', e => {
+  state.jellyRoll.calc.packTotalStrips = parseInt(e.target.value) || 40;
+  if (state.jellyRoll.currentBlocks.length) renderJrCalculator();
+});
+document.getElementById('jr-calc-pack-unique').addEventListener('input', e => {
+  state.jellyRoll.calc.packUniqueDesigns = parseInt(e.target.value) || 20;
+  if (state.jellyRoll.currentBlocks.length) renderJrCalculator();
+});
+document.getElementById('jr-calc-strip-width').addEventListener('input', e => {
+  state.jellyRoll.calc.stripWidthIn = parseFloat(e.target.value) || 2.5;
+  if (state.jellyRoll.currentBlocks.length) renderJrCalculator();
+});
+document.getElementById('jr-calc-strip-length').addEventListener('input', e => {
+  state.jellyRoll.calc.packStripLengthIn = parseFloat(e.target.value) || 44;
+  if (state.jellyRoll.currentBlocks.length) renderJrCalculator();
+});
+
+// ── JR Save / Load ──
+document.getElementById('jr-save-btn').addEventListener('click', saveJrLayout);
+document.getElementById('jr-clear-saved-btn').addEventListener('click', () => {
+  state.jellyRoll.savedLayouts = [];
+  state.jellyRoll.activeCardId = null;
+  renderJrSavedPanel();
+});
+
+function saveJrLayout() {
+  const jr = state.jellyRoll;
+  if (!jr.currentBlocks.length) return;
+
+  jr.saveCounter++;
+  const { cols, rows, layoutMode, currentBlocks } = jr;
+  const modeName = layoutMode === 'railfence' ? 'Rail Fence' : 'String Pinwheel';
+  const label = `${cols}×${rows} · ${modeName} #${jr.saveCounter}`;
+
+  const thumbnail = generateJrThumbnailSync(currentBlocks, cols, rows, layoutMode);
+  const id = Date.now();
+
+  jr.savedLayouts.push({ id, label, blocks: [...currentBlocks], cols, rows, layoutMode, thumbnail });
+  jr.activeCardId = id;
+
+  renderJrSavedPanel();
+
+  const saveBtn = document.getElementById('jr-save-btn');
+  saveBtn.textContent = 'Saved!';
+  saveBtn.classList.add('saved-flash');
+  setTimeout(() => {
+    saveBtn.textContent = 'Save Layout';
+    saveBtn.classList.remove('saved-flash');
+  }, 1200);
+}
+
+function generateJrThumbnailSync(blocks, cols, rows, mode) {
+  const THUMB_W = 236;
+  const gap = 1;
+  const cellSize = Math.max(Math.floor((THUMB_W - gap * (cols + 1)) / cols), 4);
+  const w = cellSize * cols + gap * (cols + 1);
+  const h = cellSize * rows + gap * (rows + 1);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#7b5e3a';
+  ctx.fillRect(0, 0, w, h);
+
+  blocks.forEach((block, i) => {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const cx = gap + col * (cellSize + gap);
+    const cy = gap + row * (cellSize + gap);
+
+    if (mode === 'railfence') {
+      const isV = (row + col) % 2 === 1;
+      const numStrips = block.strips.length;
+      const sw = cellSize / numStrips;
+      block.strips.forEach((strip, si) => {
+        const c = strip.color || [180, 180, 180];
+        ctx.fillStyle = `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`;
+        if (isV) {
+          ctx.fillRect(cx + si * sw, cy, sw, cellSize);
+        } else {
+          ctx.fillRect(cx, cy + si * sw, cellSize, sw);
+        }
+      });
+    } else {
+      // String pinwheel — draw diagonal colored strips
+      const isFlipped = (row + col) % 2 === 1;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(cx, cy, cellSize, cellSize);
+      ctx.clip();
+      ctx.translate(cx + cellSize / 2, cy + cellSize / 2);
+      ctx.rotate(isFlipped ? -Math.PI / 4 : Math.PI / 4);
+      const diag = cellSize * Math.sqrt(2);
+      const sw = diag / block.strips.length;
+      block.strips.forEach((strip, si) => {
+        const c = strip.color || [180, 180, 180];
+        ctx.fillStyle = `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`;
+        ctx.fillRect(-diag / 2 + si * sw, -diag / 2, sw, diag);
+      });
+      ctx.restore();
+    }
+  });
+
+  // Mode badge
+  const badgeText = mode === 'railfence' ? 'Rail Fence' : 'String Pinwheel';
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.font = 'bold 10px sans-serif';
+  const badgeW = ctx.measureText(badgeText).width + 8;
+  ctx.fillRect(2, h - 16, badgeW, 14);
+  ctx.fillStyle = 'white';
+  ctx.fillText(badgeText, 6, h - 5);
+
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+function renderJrSavedPanel() {
+  const jr = state.jellyRoll;
+  const sec = document.getElementById('jr-saved-section');
+  const grid = document.getElementById('jr-saved-grid');
+  const countEl = document.getElementById('jr-saved-count');
+
+  sec.style.display = jr.savedLayouts.length ? 'block' : 'none';
+  countEl.textContent = jr.savedLayouts.length ? `(${jr.savedLayouts.length})` : '';
+  grid.innerHTML = '';
+
+  jr.savedLayouts.forEach(layout => {
+    const card = document.createElement('div');
+    card.className = 'saved-card' + (layout.id === jr.activeCardId ? ' active-card' : '');
+    card.dataset.id = layout.id;
+
+    const thumb = document.createElement('img');
+    thumb.src = layout.thumbnail;
+    thumb.alt = layout.label;
+    thumb.title = 'Click to load';
+    thumb.addEventListener('click', () => loadJrSavedLayout(layout.id));
+
+    const footer = document.createElement('div');
+    footer.className = 'saved-card-footer';
+
+    const labelEl = document.createElement('input');
+    labelEl.type = 'text';
+    labelEl.className = 'saved-label';
+    labelEl.value = layout.label;
+    labelEl.title = 'Click to rename';
+    labelEl.addEventListener('change', () => { layout.label = labelEl.value; });
+
+    const actions = document.createElement('div');
+    actions.className = 'saved-card-actions';
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'btn-load';
+    loadBtn.textContent = 'Load';
+    loadBtn.addEventListener('click', () => loadJrSavedLayout(layout.id));
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-delete-saved';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', () => {
+      jr.savedLayouts = jr.savedLayouts.filter(l => l.id !== layout.id);
+      if (jr.activeCardId === layout.id) jr.activeCardId = null;
+      renderJrSavedPanel();
+    });
+
+    actions.append(loadBtn, delBtn);
+    footer.append(labelEl, actions);
+    card.append(thumb, footer);
+    grid.appendChild(card);
+  });
+}
+
+function loadJrSavedLayout(id) {
+  const jr = state.jellyRoll;
+  const layout = jr.savedLayouts.find(l => l.id === id);
+  if (!layout) return;
+  jr.activeCardId = id;
+  jr.currentBlocks = layout.blocks;
+  jr.cols = layout.cols;
+  jr.rows = layout.rows;
+  jr.layoutMode = layout.layoutMode;
+
+  if (layout.layoutMode === 'railfence') {
+    renderJrRailFenceGrid(layout.blocks, layout.cols, layout.rows);
+  } else {
+    renderJrStringPinwheelGrid(layout.blocks, layout.cols, layout.rows);
+  }
+  document.getElementById('jr-grid-info').textContent = layout.label + '  (loaded)';
+  renderJrSavedPanel();
+}
