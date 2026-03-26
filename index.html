@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quilt Layout Planner</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <h1>Quilt Layout Planner</h1>
+    <p>Upload your fabric images and preview how your quilt will lay out.</p>
+  </header>
+
+  <main>
+    <!-- Upload Section -->
+    <section class="upload-section">
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-zone-inner">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+          </svg>
+          <p>Drag &amp; drop images here</p>
+          <span>or</span>
+          <label class="btn-upload" for="file-input">Choose Files</label>
+          <input type="file" id="file-input" accept="image/*" multiple hidden />
+        </div>
+      </div>
+
+      <div id="upload-status" class="upload-status">
+        <span id="image-count">0 images loaded</span>
+        <button id="clear-btn" class="btn-secondary" style="display:none">Clear All</button>
+      </div>
+    </section>
+
+    <!-- Controls Section -->
+    <section class="controls-section" id="controls" style="display:none">
+      <div class="control-group">
+        <label>Grid Dimensions</label>
+        <div class="dimension-row">
+          <select id="dimension-select"></select>
+          <span class="dim-label" id="dim-label"></span>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>Image Set</label>
+        <div class="toggle-row">
+          <span id="set-count-label">Using 0 images (1×)</span>
+          <div class="toggle-group">
+            <button class="multiplier-btn active" data-mult="1">1×</button>
+            <button class="multiplier-btn" data-mult="2">2× (duplicate)</button>
+            <button class="multiplier-btn" data-mult="3">3×</button>
+            <button class="multiplier-btn" data-mult="4">4×</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>Options</label>
+        <div class="options-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="shuffle-check" />
+            Shuffle image order
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="seams-check" checked />
+            Show seam lines
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="square-check" checked />
+            Square crop images
+          </label>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <button id="generate-btn" class="btn-primary">Generate Quilt Layout</button>
+        <button id="shuffle-btn" class="btn-secondary">Shuffle &amp; Regenerate</button>
+        <button id="optimize-btn" class="btn-optimize" title="Arrange blocks so similar colors are not placed next to each other">Optimize Colors</button>
+        <button id="checker-btn" class="btn-checker" title="Sort fabrics by brightness and alternate light/dark in a checkerboard pattern">Checkerboard</button>
+        <button id="hue-diag-btn" class="btn-hue-diag" title="Sort fabrics by color hue and arrange them in diagonal bands (red → orange → yellow → green → blue → purple)">Hue Diagonal</button>
+      </div>
+    </section>
+
+    <!-- Grid Preview -->
+    <section class="preview-section" id="preview-section" style="display:none">
+      <div class="preview-header">
+        <h2>Quilt Preview</h2>
+        <span id="grid-info"></span>
+      </div>
+      <div id="quilt-grid" class="quilt-grid"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
