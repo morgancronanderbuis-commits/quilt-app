@@ -39,11 +39,33 @@ header h1 {
   letter-spacing: 0.02em;
 }
 
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.header-text { flex: 1; min-width: 0; }
+
 header p {
   margin-top: 0.15rem;
   font-size: 0.85rem;
   opacity: 0.85;
 }
+
+.guide-link {
+  flex-shrink: 0;
+  color: #e8d0a8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 0.3rem 0.7rem;
+  border-radius: 5px;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.guide-link:hover { background: rgba(255,255,255,0.15); color: #fff; }
 
 /* ─── Main (fills remaining height) ─────────────────── */
 main {
@@ -62,7 +84,7 @@ main {
 
 .quilt-layout {
   display: grid;
-  grid-template-columns: clamp(280px, 26vw, 480px) 1fr;
+  grid-template-columns: clamp(360px, 28vw, 520px) 1fr;
   height: 100%;
 }
 
@@ -1191,6 +1213,19 @@ canvas.pinwheel-cell.drag-over {
 }
 .btn-jr-pinwheel:hover { background: #a0527d; }
 
+.btn-jr-rainbow {
+  padding: 0.55rem 1.25rem;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  background: #3a6b7b;
+  color: white;
+}
+.btn-jr-rainbow:hover { background: #4f8fa3; }
+
 /* ─── JR Two-Column Button Layout ───────────────────────── */
 .jr-btn-columns {
   display: grid;
@@ -1245,3 +1280,98 @@ canvas.jr-cell { display: block; flex-shrink: 0; }
   bottom: 4px;
   left: 4px;
 }
+
+/* ─── CP New Layout Buttons ──────────────────────────────── */
+.btn-hourglass {
+  padding: 0.55rem 1.25rem;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  background: #6b3a5a;
+  color: white;
+}
+.btn-hourglass:hover { background: #8a4a72; }
+.btn-hourglass.active-mode { background: #4d2840; box-shadow: 0 0 0 2px #c060a0 inset; }
+
+/* ─── JR Pattern Preset ──────────────────────────────────── */
+.preset-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.preset-row select {
+  flex: 1;
+  min-width: 160px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #fff;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.btn-guide-link {
+  padding: 0.35rem 0.7rem;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #3a6b7b;
+  border: 1px solid #3a6b7b;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-guide-link:hover { background: #3a6b7b; color: white; }
+
+.preset-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+  line-height: 1.4;
+}
+
+/* ─── Strip Sequence (Easiest Throw) ────────────────────── */
+.strip-seq-cell {
+  display: block;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* ─── Sewing Order Badges ────────────────────────────────── */
+.sewing-step {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+  line-height: 1;
+}
+
+/* ─── JR Pattern Preset Buttons ─────────────────────────── */
+.btn-jr-preset {
+  padding: 0.55rem 1.25rem;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  background: #5a7b6b;
+  color: white;
+  text-align: left;
+}
+.btn-jr-preset:hover { background: #6e9a86; }
+.btn-jr-preset.active-mode { background: #3d5a4d; box-shadow: 0 0 0 2px #a0c8b4 inset; }

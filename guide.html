@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quilting Guide &amp; Pattern Library</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f5f0eb;
+      color: #2c1f14;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .guide-header {
+      background: #3e2a1e;
+      color: #f5efe6;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .guide-header a.back-link {
+      color: #d4b48c;
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: color 0.15s;
+    }
+    .guide-header a.back-link:hover { color: #f0d4a8; }
+    .guide-header h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .guide-header p {
+      font-size: 0.85rem;
+      color: #c0a882;
+      margin-left: auto;
+    }
+
+    /* ── Layout ── */
+    .guide-layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: calc(100vh - 58px);
+    }
+
+    /* ── Sidebar Nav ── */
+    .guide-nav {
+      background: #ece4d8;
+      border-right: 1px solid #d5c9bb;
+      padding: 1.5rem 1rem;
+      position: sticky;
+      top: 58px;
+      height: calc(100vh - 58px);
+      overflow-y: auto;
+    }
+    .nav-group { margin-bottom: 1.5rem; }
+    .nav-group-title {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #8a6a4a;
+      margin-bottom: 0.5rem;
+      padding-left: 0.5rem;
+    }
+    .guide-nav a {
+      display: block;
+      padding: 0.35rem 0.75rem;
+      border-radius: 5px;
+      font-size: 0.85rem;
+      color: #4a3020;
+      text-decoration: none;
+      transition: background 0.12s, color 0.12s;
+    }
+    .guide-nav a:hover { background: #d6c8b4; color: #2c1a0e; }
+    .guide-nav a.active { background: #7b5e3a; color: #fff; }
+
+    /* ── Main Content ── */
+    .guide-main {
+      padding: 2rem 2.5rem;
+      max-width: 860px;
+    }
+
+    .guide-section-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #3e2a1e;
+      margin-bottom: 0.25rem;
+      padding-top: 1rem;
+      border-bottom: 3px solid #c19a6b;
+      padding-bottom: 0.4rem;
+    }
+    .guide-section-subtitle {
+      font-size: 0.82rem;
+      color: #8a6a4a;
+      margin-bottom: 2rem;
+      font-style: italic;
+    }
+
+    /* ── Technique Cards ── */
+    .topic {
+      margin-bottom: 2.5rem;
+    }
+    .topic h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #5a3e2b;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .topic h2::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 1.1em;
+      background: #c19a6b;
+      border-radius: 2px;
+    }
+    .topic h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #6b4c30;
+      margin: 1rem 0 0.4rem;
+    }
+    .topic p, .topic li {
+      font-size: 0.9rem;
+      line-height: 1.65;
+      color: #3c2a1a;
+    }
+    .topic ul, .topic ol {
+      padding-left: 1.4rem;
+      margin-bottom: 0.75rem;
+    }
+    .topic li { margin-bottom: 0.3rem; }
+
+    .formula-box {
+      background: #e8ddd0;
+      border-left: 4px solid #c19a6b;
+      border-radius: 0 6px 6px 0;
+      padding: 0.6rem 1rem;
+      margin: 0.6rem 0;
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    .formula-box strong { color: #5a3e2b; }
+
+    /* Handwritten note style */
+    .handwritten {
+      background: #fff9ef;
+      border: 1px solid #e0d0b0;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin: 0.75rem 0;
+      font-size: 0.85rem;
+      line-height: 1.65;
+      color: #5a4020;
+      position: relative;
+    }
+    .handwritten::before {
+      content: '✎ Notes';
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #a07840;
+      display: block;
+      margin-bottom: 0.4rem;
+    }
+    .handwritten ul { padding-left: 1.2rem; }
+    .handwritten li { margin-bottom: 0.25rem; }
+
+    /* ── Pattern Cards ── */
+    .pattern-card {
+      background: #fff;
+      border: 1px solid #ddd0be;
+      border-radius: 10px;
+      margin-bottom: 2rem;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(80,50,20,0.06);
+    }
+    .pattern-header {
+      background: #7b5e3a;
+      color: #fff;
+      padding: 1rem 1.4rem;
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .pattern-header h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    .pattern-header .pattern-meta {
+      font-size: 0.8rem;
+      color: #e8d4b8;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .pattern-header .pattern-meta span::before {
+      content: '·';
+      margin-right: 0.5rem;
+      opacity: 0.5;
+    }
+    .pattern-header .pattern-meta span:first-child::before { display: none; }
+
+    .pattern-body {
+      padding: 1.2rem 1.4rem;
+    }
+
+    .pattern-body h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #8a6a4a;
+      margin: 1.2rem 0 0.5rem;
+    }
+    .pattern-body h3:first-child { margin-top: 0; }
+
+    .pattern-body p, .pattern-body li {
+      font-size: 0.88rem;
+      line-height: 1.65;
+      color: #3c2a1a;
+    }
+    .pattern-body ul, .pattern-body ol {
+      padding-left: 1.4rem;
+      margin-bottom: 0.5rem;
+    }
+    .pattern-body li { margin-bottom: 0.3rem; }
+
+    .materials-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-bottom: 0.5rem;
+    }
+    .materials-table th {
+      text-align: left;
+      padding: 0.35rem 0.6rem;
+      background: #f0e8dc;
+      font-weight: 700;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b4c30;
+    }
+    .materials-table td {
+      padding: 0.35rem 0.6rem;
+      border-top: 1px solid #ede0ce;
+      color: #3c2a1a;
+    }
+    .materials-table tr:hover td { background: #faf4ec; }
+
+    .steps ol {
+      padding-left: 1.4rem;
+    }
+    .steps li {
+      margin-bottom: 0.5rem;
+      font-size: 0.88rem;
+      line-height: 1.65;
+    }
+
+    .pattern-badge {
+      display: inline-block;
+      background: #f0e4d0;
+      color: #7b5e3a;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 20px;
+      margin-left: auto;
+    }
+
+    /* ── Tip callout ── */
+    .tip {
+      background: #eef6ee;
+      border-left: 4px solid #6a9b6a;
+      border-radius: 0 5px 5px 0;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.85rem;
+      margin: 0.5rem 0;
+      color: #2a4a2a;
+    }
+    .tip strong { color: #3a6a3a; }
+
+    .warn {
+      background: #fff6e6;
+      border-left: 4px solid #c8893a;
+      border-radius: 0 5px 5px 0;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.85rem;
+      margin: 0.5rem 0;
+      color: #5a3a10;
+    }
+
+    /* ── Divider ── */
+    hr.section-divider {
+      border: none;
+      border-top: 2px dashed #d5c9bb;
+      margin: 2.5rem 0;
+    }
+
+    /* ── Back-to-top button ── */
+    .back-top {
+      display: inline-block;
+      margin-top: 2rem;
+      padding: 0.4rem 0.9rem;
+      background: #7b5e3a;
+      color: #fff;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .back-top:hover { background: #9a7a50; }
+
+    /* ── Reference Images ── */
+    .img-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin: 1rem 0 0.5rem;
+    }
+    .img-thumb {
+      cursor: zoom-in;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #d5c9bb;
+      flex: 0 0 auto;
+      background: #fff;
+    }
+    .img-thumb img {
+      display: block;
+      width: 170px;
+      height: 130px;
+      object-fit: cover;
+      transition: opacity 0.15s;
+    }
+    .img-thumb img:hover { opacity: 0.82; }
+    .img-thumb figcaption {
+      font-size: 0.7rem;
+      color: #8a6a4a;
+      padding: 0.2rem 0.4rem;
+      background: #f5efe8;
+      text-align: center;
+      max-width: 170px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .img-section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #a07840;
+      margin: 1rem 0 0.35rem;
+    }
+
+    /* ── Lightbox ── */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img {
+      max-width: 92vw;
+      max-height: 90vh;
+      border-radius: 4px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      object-fit: contain;
+      cursor: default;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 0.75rem;
+      right: 1.25rem;
+      color: #fff;
+      font-size: 2.2rem;
+      cursor: pointer;
+      line-height: 1;
+      opacity: 0.8;
+    }
+    .lightbox-close:hover { opacity: 1; }
+    .lightbox-caption {
+      position: absolute;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #e0d0b8;
+      font-size: 0.85rem;
+      background: rgba(0,0,0,0.5);
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 700px) {
+      .guide-layout { grid-template-columns: 1fr; }
+      .guide-nav {
+        position: static;
+        height: auto;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        border-right: none;
+        border-bottom: 1px solid #d5c9bb;
+      }
+      .nav-group { margin-bottom: 0; }
+      .guide-nav a { font-size: 0.78rem; padding: 0.25rem 0.5rem; }
+      .guide-main { padding: 1.25rem; }
+      .guide-header p { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="guide-header">
+  <a href="index.html" class="back-link">← Quilt Planner</a>
+  <h1>Quilting Guide &amp; Pattern Library</h1>
+  <p>Techniques reference &amp; step-by-step pattern instructions</p>
+</header>
+
+<div class="guide-layout">
+
+  <!-- ── Sidebar Nav ── -->
+  <nav class="guide-nav">
+    <div class="nav-group">
+      <div class="nav-group-title">Techniques</div>
+      <a href="#techniques">Overview</a>
+      <a href="#borders">Borders</a>
+      <a href="#triangles">Triangles &amp; HSTs</a>
+      <a href="#batting">Batting &amp; Finishing</a>
+      <a href="#binding">Binding</a>
+      <a href="#pressing">Pressing Tips</a>
+      <a href="#misc">Miscellaneous</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Charm Pack Patterns</div>
+      <a href="#pattern-charm-sunday">Charm Sunday</a>
+      <a href="#pattern-charm-monday">Charm Monday</a>
+      <a href="#pattern-one-charm-plus">One Charm Pack Plus</a>
+      <a href="#pattern-william-morris">William Morris Table Topper</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Jelly Roll Patterns</div>
+      <a href="#pattern-2nd-easiest">2nd Easiest Jelly Roll</a>
+      <a href="#pattern-easiest-throw">Easiest Jelly Roll Throw</a>
+    </div>
+  </nav>
+
+  <!-- ── Main Content ── -->
+  <main class="guide-main">
+
+    <!-- ════════════════════════════════════════════
+         TECHNIQUES REFERENCE
+    ════════════════════════════════════════════ -->
+    <div id="techniques">
+      <div class="guide-section-title">Quilting Techniques Reference</div>
+      <p class="guide-section-subtitle">Notes from David Taylor, Quilter — Project Linus (Quilts for Kids in Need)</p>
+    </div>
+
+    <!-- Borders -->
+    <div id="borders" class="topic">
+      <h2>Borders</h2>
+
+      <h3>Border Tips &amp; Formulas</h3>
+      <ol>
+        <li><strong>Seam allowance</strong>: Always subtract ½" for seam allowances before doing any border math.</li>
+        <li><strong>Spacer border width</strong>: Measure the quilt and subtract ½" for seam allowances. Measure the pieced border and subtract ½". Subtract the quilt top measurement from the border measurement, then divide the difference by 2. This is the finished width of the spacer border. Add ½" when cutting strips.</li>
+        <li><strong>Grain</strong>: Borders are more stable when cut on the <strong>lengthwise grain</strong> of the fabric.</li>
+        <li><strong>Diagonal measurement of a square</strong>: Take the finished dimension and multiply by <strong>1.414</strong> (the hypotenuse). Always a weird number — round up to the nearest ⅛", then add 1.25".</li>
+        <li><strong>Setting triangle size</strong>: Take the finished dimension of a block and multiply by 1.414. Round up to nearest ⅛". Add 1¼". Cut squares this size and cut into quarters with an X.</li>
+        <li><strong>Corner setting triangles</strong>: Take the finished dimension of a block and divide by 1.414. Round up to nearest ⅛" and add 7/8" for seam allowances. Cut squares this size and cut in half diagonally.</li>
+      </ol>
+
+      <div class="formula-box">
+        <strong>Quick formula — diagonal of a square:</strong><br>
+        Finished size × 1.414 = diagonal length. Round up to nearest ⅛", then add 1¼".
+      </div>
+
+      <h3>Plain Borders</h3>
+      <ol>
+        <li>Inner borders may be cut on crosswise grain. Piece strips by cutting a 45° angle on ends and piecing end to end.</li>
+        <li>Outer borders should be cut on <strong>lengthwise grain</strong> for stability — quilts lay flatter.</li>
+        <li>Always measure quilt top before cutting border lengths. Measure opposite sides and through the center to find an average length.</li>
+        <li>Never start at one end and sew to the other. Find the center of the border and match to the center of the quilt top. Pin at center, each end, and every 6–8 inches. Then sew.</li>
+        <li>Press seams flat, then toward the last border added.</li>
+      </ol>
+
+      <div class="tip"><strong>Always measure before you put borders on.</strong> Your quilt top may have stretched unevenly — measuring and finding an average prevents wavy borders.</div>
+
+      <h3>Pieced Borders</h3>
+      <ol>
+        <li>If a pieced border is slightly long, pin border to quilt top (matching centers and ends) and sew with the <strong>pieced border toward the feed dogs</strong> — this will automatically ease the fullness.</li>
+        <li><strong>Spacer border formula</strong>: Measure quilt top and pieced border; subtract ½" from each for seam allowances. Subtract quilt top measurement from pieced border measurement. Divide difference by 2 = finished spacer border dimension. Add ½" for seam allowances before cutting.</li>
+      </ol>
+
+      <h3>Fabric Grain &amp; Borders</h3>
+      <div class="warn"><strong>No crosswise grain on borders.</strong> Sewing crosswise on top and lengthwise on the bottom causes waviness. Outer borders: always lengthwise grain.</div>
+
+      <p class="img-section-label">Reference sheets</p>
+      <div class="img-grid">
+        <figure class="img-thumb">
+          <img src="patterns/IMG_9530.JPG" data-full="patterns/IMG_9530.JPG" alt="Handwritten border tips and formulas" />
+          <figcaption>Handwritten tips &amp; formulas</figcaption>
+        </figure>
+        <figure class="img-thumb">
+          <img src="patterns/IMG_9532.JPG" data-full="patterns/IMG_9532.JPG" alt="Typed border basics reference sheet" />
+          <figcaption>Border basics reference</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- Triangles -->
+    <div id="triangles" class="topic">
+      <h2>Triangles &amp; HSTs</h2>
+
+      <h3>Half Square Triangles (HST)</h3>
+      <ul>
+        <li>Add <strong>7/8"</strong> to the finished dimension of the desired triangle square.</li>
+        <li>Cut squares this size and cut in half diagonally, <em>or</em> draw a diagonal line corner to corner and stitch ¼" on either side of the drawn line. Cutting apart on the drawn line yields two triangle squares.</li>
+        <li>Hypotenuse of the triangle needs to be on the <strong>straight of grain</strong> — not the bias. If everything is on bias, it will wave and stretch.</li>
+        <li>"Triangle on a roll" makes it faster — sew a continuous line for half-square.</li>
+        <li>Press from the top of fabric.</li>
+        <li>Match grain of squares: <strong>crosswise on crosswise</strong> and <strong>lengthwise on lengthwise</strong>.</li>
+      </ul>
+
+      <div class="formula-box">
+        <strong>HST cut size:</strong> Finished size + 7/8"<br>
+        <strong>Example:</strong> Want 4½" finished HST? Cut squares at 5⅜".
+      </div>
+
+      <div class="handwritten">
+        <ul>
+          <li>1/16th of an inch off is okay. ¼" is not.</li>
+          <li>Stitch length 2 is good for fine work.</li>
+          <li>You could do 22" at a time — two triangles yields 16 squares.</li>
+        </ul>
+      </div>
+
+      <h3>Quarter Square Triangles (QST)</h3>
+      <ul>
+        <li>Add <strong>1¼"</strong> to the finished dimension of the long side of the desired triangle.</li>
+        <li>Cut squares this size and cut into quarters with an X.</li>
+        <li>Take 2 squares, put together. Draw line on diagonal. Have needle at ¼" and sew ¼" on either side of diagonal. Cut in half, open, press to dark side.</li>
+        <li>Place 2 squares together and draw diagonal line again. Sew ¼" on either side. You can spin the center — take out stitches leading up to the center on the seam allowance.</li>
+      </ul>
+
+      <div class="formula-box">
+        <strong>QST cut size:</strong> Finished size of long side + 1¼"<br>
+        Yields 4 QST triangles per pair of squares.
+      </div>
+
+      <h3>Bias Squares</h3>
+      <p><strong>Bias means diagonal.</strong> Many quilts contain squares made from two contrasting triangles. Short sides are on straight grain; long side is on the bias. These are called <em>bias square units</em>.</p>
+      <ol>
+        <li>Cut two half-yard pieces of contrasting fabric and layer right sides together. Both will be cut at the same time.</li>
+        <li>Use the 45° marking on the cutting guide and make a bias cut.</li>
+        <li>Cut strips the same width as the bias squares you will be cutting. (Example: cut 2½" wide strips for 2½" unfinished = 2" finished.)</li>
+        <li>Sew strips together on the long bias edge using ¼" seam allowance. Press seams toward dark fabric. (For bias squares 1¼" or smaller, press seam open to evenly distribute bulk.)</li>
+        <li>Align 45° marking of the Bias Square™ with seamline. Cut first two sides of square. Measure from cut edge and cut. Cut all four sides in the same manner.</li>
+        <li>Waste triangles will result after cutting — several quilts incorporate these into design units.</li>
+      </ol>
+
+      <h3>Flying Geese (Quick Piecing)</h3>
+      <p><em>Uses 1 – 5¼" square &amp; 4 – 2¾" squares. Yield: 4 Flying Geese Units.</em></p>
+      <ol>
+        <li>Draw a diagonal line on the wrong side of each of the 4 small squares.</li>
+        <li>With right sides together, place 2 small squares in opposite corners of the large square — matching corners and center diagonal lines. Stitch ¼" on each side of drawn line.</li>
+        <li>Using a ruler and rotary cutter, cut on center lines. Press small triangles away from large triangle.</li>
+        <li>Place another marked square in the remaining corner of the large triangle. Stitch on seam lines. Cut and press. Yield 2 flying geese units.</li>
+        <li>Trim corners (ears) on each unit. Units should measure 2½" × 4½".</li>
+        <li>Repeat with remaining squares to yield 4 flying geese units (enough for 1 star block).</li>
+      </ol>
+
+      <div class="handwritten">
+        <ul>
+          <li>If star points are two different colors, sew small colored squares in pairs — first one color, then second. Make a second set reversing color placement.</li>
+          <li>The tips may not go all the way up — that's okay. It's part of the ¼" seam allowance.</li>
+          <li>If you make something really small, press seams open; otherwise press to dark side.</li>
+        </ul>
+      </div>
+
+      <p class="img-section-label">Reference sheets</p>
+      <div class="img-grid">
+        <figure class="img-thumb">
+          <img src="patterns/IMG_9534.JPG" data-full="patterns/IMG_9534.JPG" alt="Typed triangles reference — HST and QST formulas" />
+          <figcaption>HST &amp; QST formulas</figcaption>
+        </figure>
+        <figure class="img-thumb">
+          <img src="patterns/IMG_9533.JPG" data-full="patterns/IMG_9533.JPG" alt="Handwritten triangle and pressing notes" />
+          <figcaption>Handwritten triangle notes</figcaption>
+        </figure>
+        <figure class="img-thumb">
+          <img src="patterns/IMG_9535.JPG" data-full="patterns/IMG_9535.JPG" alt="Quick piecing flying geese — printed reference with diagrams" />
+          <figcaption>Flying geese quick piecing</figcaption>
+        </figure>
+        <figure class="img-thumb">
+          <img src="patterns/IMG_9536.JPG" data-full="patterns/IMG_9536.JPG" alt="Bias squares — printed reference page 1 with diagrams" />
+          <figcaption>Bias squares — page 1</figcaption>
+        </figure>
+        <figure class="img-thumb">
+          <img src="patterns/IMG_9537.JPG" data-full="patterns/IMG_9537.JPG" alt="Bias squares — cutting and aligning diagrams" />
+          <figcaption>Bias squares — cutting</figcaption>
+        </figure>
+        <figure class="img-thumb">
+          <img src="patterns/IMG_9538.JPG" data-full="patterns/IMG_9538.JPG" alt="Bias squares size reference table" />
+          <figcaption>Bias squares size table</figcaption>
+        </figure>
+        <figure class="img-thumb">
+          <img src="patterns/IMG_9539.JPG" data-full="patterns/IMG_9539.JPG" alt="Waste triangles and pinned triangle unit diagrams" />
+          <figcaption>Waste triangles &amp; units</figcaption>
+        </figure>
+        <figure class="img-thumb">
+          <img src="patterns/IMG_9540.JPG" data-full="patterns/IMG_9540.JPG" alt="Arranging waste triangles in mixed colors, saving time and fabric" />
+          <figcaption>Mixed color arrangements</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- Batting -->
+    <div id="batting" class="topic">
+      <h2>Batting &amp; Finishing</h2>
+
+      <h3>Choosing Batting</h3>
+      <ul>
+        <li>Most battings today: you can do <strong>6–10 inches apart</strong> for quilting.</li>
+        <li>Good brands: Quilter's Dream, Hobbs — <em>bamboo is good for pliability</em>.</li>
+        <li>Usually avoid polyester — fibers are long and pill and beard (come through the fabric). Polyester also doesn't breathe.</li>
+        <li>For a flannel quilt: warm and natural batting gives more body and warmth.</li>
+        <li>Wool batting: <strong>do not put in the dryer</strong>.</li>
+      </ul>
+
+      <h3>Basting</h3>
+      <ul>
+        <li>Put a sheet beneath to protect the floor. Spray fabric (not batting) in 20" segments.</li>
+        <li>You want a little extra batting and backing around all edges.</li>
+        <li>Tie corners with 6 strands of embroidery floss.</li>
+        <li><strong>$50 tip: baste with 505 spray.</strong></li>
+      </ul>
+
+      <h3>Free Motion Quilting</h3>
+      <ul>
+        <li>Drop the feed dogs — you may have a button or lever.</li>
+        <li>Use a <strong>machine quilting foot</strong> — you are the person moving the fabric.</li>
+        <li><strong>Gardening gloves</strong> with grippy texture are very helpful for control.</li>
+        <li>A stitch regulator can be used for consistent stitch length.</li>
+        <li>Get both threads on top of fabric to start.</li>
+        <li>For hand quilting: start in the center. Machine quilting is not necessary.</li>
+      </ul>
+
+      <h3>General Tips</h3>
+      <ul>
+        <li>Try taking a picture in black &amp; white — shows <strong>contrast value</strong> clearly.</li>
+        <li>Everything on the edge of the quilt should be on <strong>straight grain</strong>.</li>
+        <li>If your blocks are supposed to be 12" but come out slightly different, average them: (12.5 + 12 + 12.25 + 13) ÷ 4 = average. As long as variation is within an inch, you can arrange blocks to compensate.</li>
+        <li>If you have a block that's too small, try adding to it rather than discarding — don't blunt your points.</li>
+        <li>No harm in washing the quilts.</li>
+      </ul>
+    </div>
+
+    <!-- Binding -->
+    <div id="binding" class="topic">
+      <h2>Binding</h2>
+      <ul>
+        <li>Cut binding strips on a <strong>45° angle</strong>.</li>
+        <li>Right sides together, sew ¼" in.</li>
+        <li>Standard width: <strong>2⅜"</strong> binding strips (some patterns use 2½").</li>
+        <li><strong>Mitered corners.</strong></li>
+        <li>Trim before or after — personal preference.</li>
+        <li>Moda makes marble binding.</li>
+        <li>Most premade bindings are poly-cotton — you can feel the difference and it affects how it lays.</li>
+        <li>Could do a <strong>decorative stitch</strong> on top.</li>
+        <li>Straight stitch lines are much harder — wavy stitching happens easily.</li>
+        <li><strong>Lighter weight thread in bobbin</strong> — lighter # = lighter thread; larger # in bobbin.</li>
+      </ul>
+
+      <div class="tip">Joining binding strips: cut a 45° angle on ends and sew end-to-end. Press seams open. Fold prepared strip in half wrong sides together and press before applying to quilt.</div>
+
+      <p class="img-section-label">Reference sheet</p>
+      <div class="img-grid">
+        <figure class="img-thumb">
+          <img src="patterns/IMG_9531.JPG" data-full="patterns/IMG_9531.JPG" alt="Handwritten binding notes" />
+          <figcaption>Handwritten binding notes</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- Pressing -->
+    <div id="pressing" class="topic">
+      <h2>Pressing Tips</h2>
+      <ul>
+        <li><strong>Press seams open</strong> if making something really small; otherwise press to dark side.</li>
+        <li>Press from the <strong>top</strong> of fabric.</li>
+        <li>Fold seams towards dark fabric.</li>
+        <li><strong>Stretch side to side</strong> — lengthwise side to side is vertical/horizontal (not stretching). Avoid stretching bias edges.</li>
+        <li>Use a ruler adjacent. One finger on the object + rest of fingers on ruler anchors it.</li>
+        <li>45mm rotary cutter can do 8 layers.</li>
+        <li>Don't over-press — <strong>no more than 3x</strong>; after 3x it's meant to be there. Re-pressing can distort seams.</li>
+        <li><strong>InStyle prints</strong>: if you can't see it from 3 feet away, it's meant to be there.</li>
+        <li><strong>Crosswise grain = horizontal</strong> — and it stretches. Be careful pressing crosswise seams.</li>
+        <li>Steady Betty is good for ironing.</li>
+      </ul>
+    </div>
+
+    <!-- Misc -->
+    <div id="misc" class="topic">
+      <h2>Miscellaneous Notes</h2>
+      <ul>
+        <li><strong>EQ Printables</strong> works in an inkjet printer for designing blocks.</li>
+        <li><strong>Chain piecing</strong>: sew pieces one after another in a chain — saves time and thread. Don't cut threads between pieces; clip them all at once afterward.</li>
+        <li>On point — blocks □ are set diagonal ◇.</li>
+        <li><strong>Project Linus</strong> — Quilts for Kids in Need / Security Blanket program.</li>
+      </ul>
+    </div>
+
+    <hr class="section-divider" />
+
+    <!-- ════════════════════════════════════════════
+         PATTERN LIBRARY
+    ════════════════════════════════════════════ -->
+    <div>
+      <div class="guide-section-title">Pattern Library</div>
+      <p class="guide-section-subtitle">Step-by-step instructions for each pattern. Use these alongside the Quilt Planner to preview layouts.</p>
+    </div>
+
+    <!-- ── Charm Sunday ── -->
+    <div id="pattern-charm-sunday" class="pattern-card">
+      <div class="pattern-header">
+        <h2>Charm Sunday</h2>
+        <div class="pattern-meta">
+          <span>Moda Fabrics</span>
+          <span>64" × 87½" finished</span>
+          <span>12 charm packs</span>
+          <span>HST blocks</span>
+        </div>
+        <span class="pattern-badge">Charm Pack</span>
+      </div>
+      <div class="pattern-body">
+        <p><em>Seam allowance ¼" included in all measurements. WOF ≈ 42".</em></p>
+        <blockquote style="border-left:3px solid #c19a6b;padding:0.4rem 0.75rem;margin:0.6rem 0;font-size:0.85rem;color:#6b4c30;background:#faf4ec;border-radius:0 4px 4px 0;">
+          Charm Square Tally: Light <strong>197</strong> · Dark <strong>249</strong>
+        </blockquote>
+
+        <h3>Fabric Requirements</h3>
+        <table class="materials-table">
+          <tr><th>Material</th><th>Amount</th></tr>
+          <tr><td>Charm packs</td><td>12 packs</td></tr>
+          <tr><td>OR light fat quarters</td><td>24</td></tr>
+          <tr><td>Dark fat quarters</td><td>21</td></tr>
+          <tr><td>Binding</td><td>⅝ yard</td></tr>
+          <tr><td>Backing</td><td>6 yards</td></tr>
+        </table>
+        <p style="font-size:0.8rem;color:#8a6a4a;margin-top:0.25rem;">If using fat quarters, cut additional 35 light + 15 dark 5"×5" squares. From each fat quarter cut 3 – 5"×22" strips, then 12 – 5"×5" squares.</p>
+
+        <h3>Cutting</h3>
+        <p><strong>Light Charm Squares:</strong></p>
+        <ul>
+          <li>From 4: cut <strong>4 – 4½" × 4½"</strong> (#1 squares)</li>
+          <li>From 18: cut <strong>18 – 4½" × 5"</strong> (#2 rectangles)</li>
+          <li>From 60: cut <strong>120 – 2½" × 4½"</strong> rectangles</li>
+          <li>From 74: cut <strong>296 – 2½" × 2½"</strong> squares</li>
+        </ul>
+        <p><strong>Dark Charm Squares:</strong></p>
+        <ul>
+          <li>From 130: cut <strong>260 – 2½" × 5"</strong> rectangles</li>
+          <li>From 44: cut <strong>88 – 2½" × 4½"</strong> rectangles</li>
+          <li>From 60: cut <strong>240 – 2½" × 2½"</strong> squares</li>
+        </ul>
+        <p><strong>Binding:</strong> Cut <strong>8 – 2½" × WOF</strong> strips.</p>
+        <div class="tip">Size reference: #1 = 4½"×4½" · #2 = 4½"×5" · #3 = 5"×5"</div>
+
+        <h3>Block Construction</h3>
+        <p><strong>Step 1 — Half Square Triangle Blocks — Make 30</strong></p>
+        <ol class="steps">
+          <li>Draw a diagonal line on the wrong side of 15 – 5"×5" <strong>light</strong> charm squares.</li>
+          <li>Layer each with a <strong>dark</strong> 5"×5" square, right sides together.</li>
+          <li>Sew ¼" on each side of the diagonal line.</li>
+          <li>Cut apart on the diagonal line. Press open. <em>Make 30 HST blocks. Finished: 4½" × 4½".</em></li>
+        </ol>
+        <p><strong>Step 2 — Block A — Make 65</strong></p>
+        <ul><li>Combine 4 – 2½" × 5" <strong>dark</strong> rectangles. Press in one direction. <em>Finished: 5" × 8½".</em></li></ul>
+        <p><strong>Step 3 — Block B — Make 22</strong></p>
+        <ol>
+          <li>Sew 1 – 2½" × 2½" <strong>light</strong> square diagonally to 1 – 2½" × 4½" <strong>dark</strong> rectangle. Press to corner.</li>
+          <li>Sew another <strong>light</strong> square on the same rectangle. Press — one flying geese unit. <em>Make 88.</em></li>
+          <li>Sew together 2 flying geese units. <em>Make 44.</em></li>
+          <li>Combine 2 units to make <strong>22 of Block B</strong>. <em>Finished: 4½" × 8½".</em></li>
+        </ol>
+        <p><strong>Step 4 — Block C — Make 30</strong></p>
+        <ol>
+          <li>Sew 1 – 2½" × 2½" <strong>dark</strong> square diagonally to 1 – 2½" × 4½" <strong>light</strong> rectangle. Press to corner.</li>
+          <li>Sew another <strong>dark</strong> square on the same rectangle. Press — one flying geese unit. <em>Make 120.</em></li>
+          <li>Combine 4 flying geese units + 1 HST block + 4 – 2½" × 2½" <strong>light</strong> squares. Make <strong>30 of Block C</strong>. <em>Finished: 8½" × 8½".</em></li>
+        </ol>
+
+        <h3>Assembly</h3>
+        <table class="materials-table">
+          <tr><th>Row</th><th>Contents</th><th>Qty</th></tr>
+          <tr><td>Row One</td><td>Sew together 8 Block As</td><td>Make 2</td></tr>
+          <tr><td>Row Two</td><td>Alternate 6 – 4½"×4½" light squares (#1) and 5 Block Bs</td><td>Make 2</td></tr>
+          <tr><td>Row Three</td><td>Sew 2 Block Bs, 4 Block As, and 5 Block Cs</td><td>Make 6</td></tr>
+          <tr><td>Row Four</td><td>Alternate 6 – 5"×5" light squares (#3) and 5 Block Bs</td><td>Make 5</td></tr>
+        </table>
+        <p style="margin-top:0.5rem;">Sew rows together. Layer, quilt, and bind. <strong>Enjoy!</strong></p>
+
+        <p class="img-section-label">Original pattern sheets</p>
+        <div class="img-grid">
+          <figure class="img-thumb">
+            <img src="patterns/IMG_9545.JPG" data-full="patterns/IMG_9545.JPG" alt="Charm Sunday page 1 — fabric requirements and steps 1–2 with HST diagrams" />
+            <figcaption>Pattern overview &amp; HST steps</figcaption>
+          </figure>
+          <figure class="img-thumb">
+            <img src="patterns/IMG_9546.JPG" data-full="patterns/IMG_9546.JPG" alt="Charm Sunday steps 3–5 with block diagrams and row assembly layout" />
+            <figcaption>Block construction &amp; assembly</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Charm Monday ── -->
+    <div id="pattern-charm-monday" class="pattern-card">
+      <div class="pattern-header">
+        <h2>Charm Monday</h2>
+        <div class="pattern-meta">
+          <span>Moda Fabrics</span>
+          <span>58" × 83" finished</span>
+          <span>9 charm packs</span>
+          <span>Flying Geese blocks</span>
+        </div>
+        <span class="pattern-badge">Charm Pack</span>
+      </div>
+      <div class="pattern-body">
+        <p><em>Seam allowance ¼" included. WOF ≈ 42".</em></p>
+        <blockquote style="border-left:3px solid #c19a6b;padding:0.4rem 0.75rem;margin:0.6rem 0;font-size:0.85rem;color:#6b4c30;background:#faf4ec;border-radius:0 4px 4px 0;">
+          Charm Square Tally: Light <strong>164</strong> · Dark <strong>186</strong>
+        </blockquote>
+
+        <h3>Fabric Requirements</h3>
+        <table class="materials-table">
+          <tr><th>Material</th><th>Amount</th></tr>
+          <tr><td>Charm packs</td><td>9 packs</td></tr>
+          <tr><td>OR light fat quarters</td><td>14</td></tr>
+          <tr><td>Dark fat quarters</td><td>16</td></tr>
+          <tr><td>Binding</td><td>⅝ yard</td></tr>
+          <tr><td>Backing</td><td>5 yards</td></tr>
+        </table>
+        <p style="font-size:0.8rem;color:#8a6a4a;margin-top:0.25rem;">From each fat quarter cut 3 – 5"×22" strips, then 12 – 5"×5" squares.</p>
+
+        <h3>Cutting</h3>
+        <p><strong>Light Charm Squares:</strong></p>
+        <ul>
+          <li>From 70: cut <strong>140 – 2½" × 4½"</strong> rectangles</li>
+          <li>From 70: cut <strong>280 – 2½" × 2½"</strong> squares</li>
+        </ul>
+        <p><strong>Dark Charm Squares:</strong></p>
+        <ul>
+          <li>From 70: cut <strong>140 – 2½" × 4½"</strong> rectangles</li>
+          <li>From 116: make <strong>116 "pieced" squares</strong> (see below)</li>
+        </ul>
+        <p><strong>Binding:</strong> Cut <strong>8 – 2½" × WOF</strong> strips.</p>
+
+        <h3>Making "Pieced" Charms</h3>
+        <ol>
+          <li>Place two 5"×5" squares right sides together.</li>
+          <li>Stitch a scant ⅛" seam on outside edges.</li>
+          <li>Cut in half.</li>
+          <li>Press open to make <strong>2 "pieced" charms</strong> — 4½" × 5" with seams.</li>
+        </ol>
+        <p><strong>Make 116 pieced charms.</strong></p>
+
+        <h3>Block Construction</h3>
+        <p><strong>Block A — Make 58</strong></p>
+        <ul><li>Combine 2 "pieced" squares. Press in one direction. <em>Finished: 5" × 8½".</em></li></ul>
+        <p><strong>Block B — Make 35</strong></p>
+        <ol>
+          <li>Sew 1 – 2½"×2½" <strong>light</strong> square diagonally to 1 – 2½"×4½" <strong>dark</strong> rectangle. Press to corner — triangle unit.</li>
+          <li>Sew another <strong>light</strong> square on the same rectangle. Press — one flying geese unit. <em>Make 140.</em></li>
+          <li>Add 1 – 2½"×4½" <strong>light</strong> rectangle to each flying geese unit. <em>Make 140.</em></li>
+          <li>Combine 4 of these units to make <strong>35 of Block B</strong>. <em>Finished: 8½" × 8½".</em></li>
+        </ol>
+
+        <h3>Assembly</h3>
+        <ul>
+          <li><strong>Row One:</strong> Alternately sew together 4 Block As and 5 Block Bs. Press away from Block Bs. <em>Make 7 of Row One.</em></li>
+          <li><strong>Row Two:</strong> Alternately sew 5 Block As and 4 – 5"×5" light charm squares. Press away from the 5" squares. <em>Make 6 of Row Two.</em></li>
+        </ul>
+        <p>Join the rows. Layer, quilt as desired, and bind. <strong>Enjoy!</strong></p>
+
+        <p class="img-section-label">Original pattern sheets</p>
+        <div class="img-grid">
+          <figure class="img-thumb">
+            <img src="patterns/IMG_9543.JPG" data-full="patterns/IMG_9543.JPG" alt="Charm Monday page 1 — full layout, fabric requirements, cutting guide" />
+            <figcaption>Pattern overview &amp; cutting</figcaption>
+          </figure>
+          <figure class="img-thumb">
+            <img src="patterns/IMG_9544.JPG" data-full="patterns/IMG_9544.JPG" alt="Charm Monday construction steps 1–3 with block and row assembly diagrams" />
+            <figcaption>Block &amp; row construction</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── One Charm Pack Plus ── -->
+    <div id="pattern-one-charm-plus" class="pattern-card">
+      <div class="pattern-header">
+        <h2>One Charm Pack Plus</h2>
+        <div class="pattern-meta">
+          <span>Moda Fabrics — Prairie Bailey</span>
+          <span>36" × 36" finished</span>
+          <span>1 charm pack</span>
+          <span>Simple bordered grid</span>
+        </div>
+        <span class="pattern-badge">Charm Pack</span>
+      </div>
+      <div class="pattern-body">
+        <p><em>Seam allowance ¼" included. WOF ≈ 42".</em></p>
+
+        <h3>Fabric Requirements</h3>
+        <table class="materials-table">
+          <tr><th>Material</th><th>Amount</th></tr>
+          <tr><td>One Charm Pack</td><td>40 – 5"×5" squares</td></tr>
+          <tr><td>Inner border</td><td>⅓ yard</td></tr>
+          <tr><td>Final border &amp; binding</td><td>1 yard</td></tr>
+          <tr><td>Backing</td><td>1¼ yards</td></tr>
+        </table>
+
+        <h3>Cutting</h3>
+        <ul>
+          <li><strong>Inner Border:</strong> Cut 4 – 2" × 27½" strips</li>
+          <li><strong>Final Border:</strong> Cut 4 – 3¾" × 27½" strips</li>
+          <li><strong>Binding:</strong> Cut 4 – 2½" × WOF strips</li>
+        </ul>
+
+        <h3>Construction</h3>
+        <p><strong>Step 1 — Quilt Center:</strong> Sew together six rows of 5"×5" squares using all 40 squares from the charm pack. Press rows in opposite directions. Sew rows together.</p>
+        <p><strong>Step 2 — Borders:</strong> Sew one 2" × 27½" inner border strip to one 3¾" × 27½" final border strip. Make 4 borders.</p>
+        <p><strong>Step 3 — Assemble:</strong> Use the four 5"×5" corner squares, four borders, and the quilt center to assemble the quilt top.</p>
+
+        <div class="tip">Great beginner project — the quilt center is a straightforward 5×8 grid of charm squares. Use the planner's "Generate Layout" or "Optimize Colors" to arrange your fabrics.</div>
+
+        <p class="img-section-label">Original pattern sheet</p>
+        <div class="img-grid">
+          <figure class="img-thumb">
+            <img src="patterns/IMG_9548.JPG" data-full="patterns/IMG_9548.JPG" alt="One Charm Pack Plus original pattern — finished quilt, cutting guide, construction steps" />
+            <figcaption>Original pattern sheet</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── William Morris Table Topper ── -->
+    <div id="pattern-william-morris" class="pattern-card">
+      <div class="pattern-header">
+        <h2>William Morris Table Topper</h2>
+        <div class="pattern-meta">
+          <span>Moda Fabrics — V&amp;A Archives</span>
+          <span>18" × 36" finished</span>
+          <span>2 charm packs</span>
+          <span>Hourglass / Pinwheel blocks</span>
+        </div>
+        <span class="pattern-badge">Charm Pack</span>
+      </div>
+      <div class="pattern-body">
+
+        <h3>Fabric Requirements</h3>
+        <table class="materials-table">
+          <tr><th>Material</th><th>Details</th></tr>
+          <tr><td>William Morris 2017 charm pack</td><td>#7300PP</td></tr>
+          <tr><td>Moda Grunge charm pack (background/tan)</td><td>#30150-162PP</td></tr>
+          <tr><td>Binding</td><td>¼ yard William Morris 2017 (#7307-24)</td></tr>
+        </table>
+
+        <h3>Cutting</h3>
+        <ul>
+          <li>Using a ruler and rotary cutter, cut all <strong>84 charm squares twice diagonally</strong> (quarter-square cuts) to make <strong>336 quarter square triangles</strong>.</li>
+          <li>Cut <strong>3 – 2½" × WOF</strong> strips for binding.</li>
+        </ul>
+
+        <h3>Construction</h3>
+        <p>Each hourglass block requires <strong>2 background (tan)</strong> and <strong>2 print</strong> quarter square triangles.</p>
+        <p><strong>Step 1 — Make Pairs:</strong> Stitch all triangles into pairs using 1 print and 1 background triangle. Always stitch pairs with the <strong>print on the right</strong> and the <strong>background on the left</strong>. <em>Make 168 pairs. Press seams open.</em></p>
+        <p><strong>Step 2 — Make Hourglass Blocks:</strong> Randomly select 2 pairs. Stitch together to make 1 hourglass block. Press seam open. Do <strong>not</strong> stitch matching prints together in the same block. Trim to <strong>3½" × 3½"</strong>. <em>Make 84 blocks.</em></p>
+        <p><strong>Step 3 — Assemble Table Topper:</strong></p>
+        <ol>
+          <li>Sort blocks into sets of 4 with 1 matching print in each group of four.</li>
+          <li>Position the four matching print triangles toward the <strong>center of the block</strong> to form a pinwheel. Press seams toward prints. <em>Make 21 pinwheel blocks. You will use 18 of the 21 blocks.</em></li>
+          <li>Arrange pinwheel blocks into <strong>3 rows of 6</strong>. Stitch together. Press seams in alternate directions.</li>
+          <li>Join rows. Topper should measure <strong>18½" × 36½"</strong> with seams.</li>
+        </ol>
+
+        <h3>Finishing</h3>
+        <ol>
+          <li>Join binding strips end to end with diagonal seams. Press open. Fold in half wrong sides together.</li>
+          <li>Layer, quilt, and bind.</li>
+        </ol>
+
+        <p class="img-section-label">Original pattern sheets</p>
+        <div class="img-grid">
+          <figure class="img-thumb">
+            <img src="patterns/IMG_9541.JPG" data-full="patterns/IMG_9541.JPG" alt="William Morris pattern page 1 — fabric requirements and construction overview" />
+            <figcaption>Pattern overview &amp; cutting</figcaption>
+          </figure>
+          <figure class="img-thumb">
+            <img src="patterns/IMG_9542.JPG" data-full="patterns/IMG_9542.JPG" alt="William Morris assembly steps and finished table topper photo" />
+            <figcaption>Assembly steps &amp; finished photo</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+
+    <hr class="section-divider" />
+
+    <!-- ── 2nd Easiest Jelly Roll ── -->
+    <div id="pattern-2nd-easiest" class="pattern-card">
+      <div class="pattern-header">
+        <h2>2nd Easiest Jelly Roll Quilt</h2>
+        <div class="pattern-meta">
+          <span>50" × 64" finished</span>
+          <span>1 jelly roll (40 strips)</span>
+          <span>20 paired blocks</span>
+        </div>
+        <span class="pattern-badge">Jelly Roll</span>
+      </div>
+      <div class="pattern-body">
+
+        <h3>Materials</h3>
+        <table class="materials-table">
+          <tr><th>Material</th><th>Amount</th></tr>
+          <tr><td>One jelly roll (or 40 assorted 2½" × 42" strips)</td><td>—</td></tr>
+          <tr><td>Backing</td><td>5/8 yard</td></tr>
+          <tr><td>Binding</td><td>3¼ yards</td></tr>
+          <tr><td>Batting</td><td>60" × 74"</td></tr>
+        </table>
+
+        <h3>Instructions</h3>
+        <div class="tip">Use the <strong>Quilt Planner → Jelly Roll tab → 2nd Easiest preset</strong> to preview your strip pairings. Drag to rearrange which strips go in each numbered block before you start cutting.</div>
+        <ol>
+          <li>Pair jelly roll strips into <strong>twenty sets of two</strong> (blocks 1–20 in the planner).</li>
+          <li>Sew strips together <strong>lengthwise</strong>.</li>
+          <li>Press seams toward the <strong>darker</strong> of the two strips. Fold strip set in half lengthwise. Cut apart on fold. Turn one half of strip set <strong>180°</strong> so that opposite colors are next to each other.</li>
+          <li>Sew strip sets together again.</li>
+          <li>Repeat until all strip sets are assembled.</li>
+          <li><strong>Join blocks</strong> together in rows following quilt layout. Make <strong>20 blocks</strong>. Trim blocks to <strong>10" in width</strong>.</li>
+          <li>Cut backing fabric into two pieces <strong>42" × 58½"</strong>. Sew pieces together in a 58½" seam. Press seam open. (Seam will be crosswise on the back.)</li>
+          <li>Cut <strong>2½" bias strips</strong> from binding fabric.</li>
+          <li>Layer backing, batting, and top. Quilt as desired.</li>
+          <li>Sew binding strips together end to end in <strong>diagonal seams</strong>. Press seams open. Fold in half wrong sides together. Place right sides together with quilt top, sew ¼" seam. Bring folded edge to back and <strong>slipstitch</strong> in place.</li>
+        </ol>
+
+        <div class="handwritten">
+          <ul>
+            <li>Try to have seams press each other — iron towards the dark.</li>
+            <li>⅜" rule: if you can't see it from 3 feet away, it's meant to be there.</li>
+            <li>45mm rotary cutter can do 8 layers.</li>
+            <li>Don't use crosswise on the border — things will get wavy.</li>
+            <li>Chain piecing: sew pieces one after another without cutting thread between — saves time and thread.</li>
+            <li>Crosswise grain (stretching) = horizontal.</li>
+          </ul>
+        </div>
+
+        <p class="img-section-label">Original pattern sheets</p>
+        <div class="img-grid">
+          <figure class="img-thumb">
+            <img src="patterns/IMG_9551.JPG" data-full="patterns/IMG_9551.JPG" alt="2nd Easiest Jelly Roll printed pattern — materials and steps" />
+            <figcaption>Printed pattern</figcaption>
+          </figure>
+          <figure class="img-thumb">
+            <img src="patterns/IMG_9549.JPG" data-full="patterns/IMG_9549.JPG" alt="Handwritten notes with strip pairing and flipping diagrams" />
+            <figcaption>Strip pairing diagrams</figcaption>
+          </figure>
+          <figure class="img-thumb">
+            <img src="patterns/IMG_9552.JPG" data-full="patterns/IMG_9552.JPG" alt="Additional handwritten notes and construction diagrams" />
+            <figcaption>Construction notes</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Easiest Jelly Roll Throw ── -->
+    <div id="pattern-easiest-throw" class="pattern-card">
+      <div class="pattern-header">
+        <h2>Easiest Ever Jelly Roll Throw</h2>
+        <div class="pattern-meta">
+          <span>61" × 77" finished (twin)</span>
+          <span>1 jelly roll (40 strips)</span>
+          <span>All strips end-to-end</span>
+        </div>
+        <span class="pattern-badge">Jelly Roll</span>
+      </div>
+      <div class="pattern-body">
+
+        <h3>Materials</h3>
+        <table class="materials-table">
+          <tr><th>Material</th><th>Amount</th></tr>
+          <tr><td>One jelly roll</td><td>—</td></tr>
+          <tr><td>Inner border</td><td>¾ yard</td></tr>
+          <tr><td>Outer border &amp; binding</td><td>2 yards</td></tr>
+          <tr><td>Backing</td><td>4 yards</td></tr>
+          <tr><td>Batting</td><td>Twin size</td></tr>
+        </table>
+
+        <h3>Instructions</h3>
+        <div class="tip">Use the <strong>Quilt Planner → Jelly Roll tab → Easiest Throw preset</strong> to arrange your strips in sewing order. The numbers 1–40 show the sequence they'll be sewn end-to-end. Drag strips to rearrange which fabric goes in each position.</div>
+        <ol>
+          <li>Sew each 2½" strip <strong>end to end with a diagonal seam</strong>. This makes one continuous strip approximately 1,600" long. (No need to worry about placement — there's no way to judge which fabrics will end up next to one another.)</li>
+          <li>Trim seams to ¼" and press in one direction.</li>
+          <li>Cut the first strip off approximately in the middle and discard the selvage off the 40th strip. Bring the two ends together — trim the loose end.</li>
+          <li>Bring the two ends together — right sides together with <strong>no twists</strong> in the strips. Sew together the long sides together. Your strip is now <strong>2 strips wide and about 800" long</strong>.</li>
+          <li>Clip the folded end so that you can open the strips and press the seam in one direction.</li>
+          <li>Again, bring the short ends together; sew the long sides right sides together; clip the fold and press. Each fold cuts the strip length in half and the seam becomes much easier to sew.</li>
+          <li>Repeat step 6 until you have <strong>32 strips in width</strong>.</li>
+          <li>Square up the top.</li>
+          <li>Cut <strong>six 2½" strips</strong> from the inner border fabric. Piece end to end. Find an average. Cut 2 strips for sides, 2 strips for top and bottom. Press seams toward outer border.</li>
+          <li>Cut a <strong>5⅜" border</strong> lengthwise from outer border fabric. Cut 2 strips for sides, 2 for top and bottom. Finished size: approximately <strong>61" × 77"</strong>.</li>
+          <li>Layer backing, batting, and top. Quilt as desired.</li>
+          <li><strong>Bind</strong> using 2½" strips of outer border fabric.</li>
+        </ol>
+
+        <div class="handwritten">
+          <ul>
+            <li>Notes say: "Cut the best half — it's messy!"</li>
+            <li>There's no way to judge which fabrics end up next to each other — the randomness is part of the charm.</li>
+          </ul>
+        </div>
+
+        <p class="img-section-label">Original pattern sheet</p>
+        <div class="img-grid">
+          <figure class="img-thumb">
+            <img src="patterns/IMG_9550.JPG" data-full="patterns/IMG_9550.JPG" alt="Easiest Jelly Roll Throw printed pattern — instructions and finished quilt preview" />
+            <figcaption>Printed pattern</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+
+    <a href="#techniques" class="back-top">↑ Back to top</a>
+
+  </main>
+</div>
+
+<!-- Lightbox overlay -->
+<div class="lightbox" id="lightbox">
+  <span class="lightbox-close" id="lb-close">×</span>
+  <img id="lb-img" src="" alt="" />
+  <div class="lightbox-caption" id="lb-caption"></div>
+</div>
+
+<script>
+  // Highlight active nav link on scroll
+  const sections = document.querySelectorAll('[id]');
+  const navLinks = document.querySelectorAll('.guide-nav a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 80) current = s.id;
+    });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  }, { passive: true });
+
+  // Lightbox
+  const lb      = document.getElementById('lightbox');
+  const lbImg   = document.getElementById('lb-img');
+  const lbCap   = document.getElementById('lb-caption');
+  const lbClose = document.getElementById('lb-close');
+
+  document.querySelectorAll('.img-thumb img').forEach(img => {
+    img.addEventListener('click', e => {
+      e.stopPropagation();
+      lbImg.src = img.dataset.full || img.src;
+      lbImg.alt = img.alt;
+      lbCap.textContent = img.closest('figure')?.querySelector('figcaption')?.textContent || '';
+      lb.classList.add('open');
+    });
+  });
+
+  lb.addEventListener('click', () => lb.classList.remove('open'));
+  lbImg.addEventListener('click', e => e.stopPropagation());
+  lbClose.addEventListener('click', () => lb.classList.remove('open'));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('open'); });
+</script>
+
+</body>
+</html>

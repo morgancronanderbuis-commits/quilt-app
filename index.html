@@ -9,8 +9,11 @@
 <body>
 
   <header>
-    <h1>Quilt Layout Planner</h1>
-    <p>Upload your fabric images and preview how your quilt will lay out.</p>
+    <div class="header-text">
+      <h1>Quilt Layout Planner</h1>
+      <p>Upload your fabric images and preview how your quilt will lay out.</p>
+    </div>
+    <a href="guide.html" target="_blank" class="guide-link">Quilting Guide &amp; Patterns ↗</a>
   </header>
 
   <!-- ── Tab Bar (spans full width above layout) ── -->
@@ -98,13 +101,20 @@
               </div>
             </div>
 
-            <div class="control-group">
-              <button id="generate-btn" class="btn-primary">Generate Quilt Layout</button>
-              <button id="shuffle-btn" class="btn-secondary">Shuffle &amp; Regenerate</button>
-              <button id="optimize-btn" class="btn-optimize" title="Arrange blocks so similar colors are not placed next to each other">Optimize Colors</button>
-              <button id="checker-btn" class="btn-checker" title="Sort fabrics by brightness and alternate light/dark in a checkerboard pattern">Checkerboard</button>
-              <button id="hue-diag-btn" class="btn-hue-diag" title="Sort fabrics by color hue and arrange them in diagonal bands (red → orange → yellow → green → blue → purple)">Hue Diagonal</button>
-              <button id="pinwheel-btn" class="btn-pinwheel" title="Render each block as a half-square triangle pinwheel">Pinwheel</button>
+            <div class="control-group jr-btn-columns">
+              <div class="jr-btn-col">
+                <label class="col-label">Layout</label>
+                <button id="generate-btn" class="btn-primary">Generate Quilt Layout</button>
+                <button id="shuffle-btn" class="btn-secondary">Shuffle &amp; Regenerate</button>
+                <button id="pinwheel-btn" class="btn-pinwheel" title="Render each block as a half-square triangle pinwheel">Pinwheel</button>
+                <button id="hourglass-btn" class="btn-hourglass" title="Four-triangle hourglass blocks — two fabrics meeting at center point (William Morris style)">Hourglass</button>
+              </div>
+              <div class="jr-btn-col">
+                <label class="col-label">Color &amp; Order</label>
+                <button id="optimize-btn" class="btn-optimize" title="Arrange blocks so similar colors are not placed next to each other">Optimize Colors</button>
+                <button id="checker-btn" class="btn-checker" title="Sort fabrics by brightness and alternate light/dark in a checkerboard pattern">Checkerboard</button>
+                <button id="hue-diag-btn" class="btn-hue-diag" title="Sort fabrics by color hue and arrange them in diagonal bands (red → orange → yellow → green → blue → purple)">Hue Diagonal</button>
+              </div>
             </div>
 
             <!-- Pinwheel background color row (shown only in pinwheel mode) -->
@@ -337,7 +347,10 @@
               <div class="jr-btn-col">
                 <label class="col-label">Layout</label>
                 <button id="jr-railfence-btn" class="btn-primary">Rail Fence</button>
+                <button id="jr-2nd-easiest-btn" class="btn-jr-preset" title="Pair strips into 20 numbered blocks sewn lengthwise — 50″×64″ finished">2nd Easiest Jelly Roll</button>
+                <button id="jr-easiest-throw-btn" class="btn-jr-preset" title="All 40 strips sewn end-to-end in numbered sequence — 61″×77″ finished">Easiest Jelly Roll Throw</button>
                 <button id="jr-stringpinwheel-btn" class="btn-jr-pinwheel">String Pinwheel</button>
+                <button id="jr-jellyrainbow-btn" class="btn-jr-rainbow" title="Triangle HST blocks based on the Jelly Rainbow pattern — each block split diagonally with strips in perpendicular orientations">Jelly Rainbow</button>
               </div>
               <div class="jr-btn-col">
                 <label class="col-label">Color &amp; Order</label>
@@ -346,6 +359,12 @@
                 <button id="jr-checker-btn" class="btn-checker" title="Alternate light and dark blocks in a checkerboard pattern">Checkerboard</button>
                 <button id="jr-hue-diag-btn" class="btn-hue-diag" title="Sort blocks by color hue in diagonal bands">Hue Diagonal</button>
               </div>
+            </div>
+
+            <!-- Preset info row — shown when 2nd Easiest or Easiest Throw is active -->
+            <div id="jr-preset-info" class="control-group" style="display:none">
+              <p id="jr-preset-hint" class="preset-hint"></p>
+              <a id="jr-guide-btn" class="btn-guide-link" href="guide.html" target="_blank">View Construction Guide ↗</a>
             </div>
 
             <!-- ── JR Border & Binding ── -->

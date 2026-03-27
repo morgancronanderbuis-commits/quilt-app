@@ -205,9 +205,12 @@ function rebuildDimensionOptions() {
 }
 
 function chooseBestDefault(pairs) {
-  // Prefer a layout where cols >= rows and ratio is between 1 and 2.5
-  const wide = pairs.filter(([c, r]) => c >= r && c / r <= 2.5);
-  if (wide.length) return wide[Math.floor(wide.length / 2)];
+  // Prefer landscape (cols >= rows) with ratio no wider than 2:1
+  const wide = pairs.filter(([c, r]) => c >= r && c / r <= 2.0);
+  if (wide.length) return wide[0]; // first = most square of the landscape options
+  // Fall back to anything with cols >= rows
+  const anyLandscape = pairs.filter(([c, r]) => c >= r);
+  if (anyLandscape.length) return anyLandscape[0];
   return pairs[Math.floor(pairs.length / 2)];
 }
 
@@ -245,15 +248,43 @@ shuffleBtn.addEventListener('click', () => {
   shuffleCheck.checked = true;
   generateLayout();
 });
-optimizeBtn.addEventListener('click', () => { setCpModeStandard(); optimizeLayout(); });
-checkerBtn.addEventListener('click', () => { setCpModeStandard(); checkerLayout(); });
+optimizeBtn.addEventListener('click', () => optimizeLayout());
+checkerBtn.addEventListener('click', () => checkerLayout());
 const hueDiagBtn = document.getElementById('hue-diag-btn');
-hueDiagBtn.addEventListener('click', () => { setCpModeStandard(); hueDiagonalLayout(); });
+hueDiagBtn.addEventListener('click', () => hueDiagonalLayout());
 
 function setCpModeStandard() {
   state.cpLayoutMode = 'standard';
   document.getElementById('pinwheel-bg-row').style.display = 'none';
-  document.getElementById('pinwheel-btn').classList.remove('active-mode');
+  ['pinwheel-btn','hourglass-btn'].forEach(id =>
+    document.getElementById(id)?.classList.remove('active-mode'));
+}
+
+function setCpMode(mode) {
+  state.cpLayoutMode = mode;
+  document.getElementById('pinwheel-bg-row').style.display = mode === 'pinwheel' ? 'flex' : 'none';
+  document.getElementById('pinwheel-btn').classList.toggle('active-mode', mode === 'pinwheel');
+  document.getElementById('hourglass-btn').classList.toggle('active-mode', mode === 'hourglass');
+}
+
+// Build offset pair pool from an ordered pool — used by all triangle-based modes.
+function makePairPool(pool) {
+  const half = Math.ceil(state.images.length / 2);
+  return [...pool.slice(half), ...pool.slice(0, half)];
+}
+
+// Dispatch to the right renderer based on current mode.
+// Color-effect functions call this so they work in pinwheel / hourglass modes too.
+function renderCpLayout(pool, cols, rows) {
+  if (state.cpLayoutMode === 'pinwheel') {
+    state.pinwheelPairPool = makePairPool(pool);
+    renderPinwheelGrid(pool, cols, rows);
+  } else if (state.cpLayoutMode === 'hourglass') {
+    state.pinwheelPairPool = makePairPool(pool);
+    renderHourglassGrid(pool, cols, rows);
+  } else {
+    renderGrid(pool, cols, rows);
+  }
 }
 
 function generateLayout() {
@@ -1115,7 +1146,7 @@ function optimizeLayout() {
     result[i] = remaining.splice(bestIdx, 1)[0];
   }
 
-  renderGrid(result, cols, rows);
+  renderCpLayout(result, cols, rows);
   gridInfo.textContent += '  —  color + pattern optimized';
 }
 
@@ -1171,7 +1202,7 @@ function hueDiagonalLayout() {
     cells.forEach((cellIdx, i) => { result[cellIdx] = chunk[i]; });
   }
 
-  renderGrid(result, cols, rows);
+  renderCpLayout(result, cols, rows);
   gridInfo.textContent += '  —  hue diagonal (red → purple)';
 }
 
@@ -1225,7 +1256,7 @@ function checkerLayout() {
     }
   }
 
-  renderGrid(result, cols, rows);
+  renderCpLayout(result, cols, rows);
   gridInfo.textContent += '  —  checkerboard (light/dark)';
 }
 
@@ -1523,22 +1554,22 @@ function shuffle(arr) {
 // Re-render on option toggle — preserve current pool/arrangement
 function reRenderIfActive() {
   if (!state.currentPool.length) return;
-  if (state.cpLayoutMode === 'pinwheel') {
-    renderPinwheelGrid(state.currentPool, state.cols, state.rows);
-  } else {
-    renderGrid(state.currentPool, state.cols, state.rows);
-  }
+  const mode = state.cpLayoutMode;
+  if (mode === 'pinwheel') renderPinwheelGrid(state.currentPool, state.cols, state.rows);
+  else if (mode === 'hourglass') renderHourglassGrid(state.currentPool, state.cols, state.rows);
+  else renderGrid(state.currentPool, state.cols, state.rows);
 }
 seamsCheck.addEventListener('change', reRenderIfActive);
 squareCheck.addEventListener('change', reRenderIfActive);
 
-// Refit to window on resize (both tabs)
+// Refit to window on resize — only re-render the currently visible tab
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    reRenderIfActive();
-    jrReRenderIfActive();
+    const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+    if (activeTab === 'charm-pack') reRenderIfActive();
+    else if (activeTab === 'jelly-roll') jrReRenderIfActive();
   }, 250);
 });
 
@@ -1551,6 +1582,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-content').forEach(c => c.hidden = true);
     btn.classList.add('active');
     document.getElementById(btn.dataset.tab + '-tab').hidden = false;
+    // Re-render the newly visible tab — canvas content is lost when hidden
+    if (btn.dataset.tab === 'charm-pack') reRenderIfActive();
+    else if (btn.dataset.tab === 'jelly-roll') jrReRenderIfActive();
   });
 });
 
@@ -1559,10 +1593,13 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // ═══════════════════════════════════════════════════════════
 
 document.getElementById('pinwheel-btn').addEventListener('click', () => {
-  state.cpLayoutMode = 'pinwheel';
-  document.getElementById('pinwheel-bg-row').style.display = 'flex';
-  document.getElementById('pinwheel-btn').classList.add('active-mode');
+  setCpMode('pinwheel');
   generatePinwheelLayout();
+});
+
+document.getElementById('hourglass-btn').addEventListener('click', () => {
+  setCpMode('hourglass');
+  generateHourglassLayout();
 });
 
 document.getElementById('pinwheel-bg-color').addEventListener('input', e => {
@@ -1585,8 +1622,9 @@ function generatePinwheelLayout() {
   while (base.length < total) base.push(...images);
 
   let pool = base.slice(0, total);
-  // Secondary pool: offset by half so paired triangles use different fabrics
-  const half = Math.ceil(base.length / 2);
+  // Secondary pool: offset by half the unique image count so paired triangles
+  // always use different fabrics even when the pool is repeated.
+  const half = Math.ceil(images.length / 2);
   let pool2 = [...base.slice(half), ...base.slice(0, half)].slice(0, total);
 
   if (shuffleCheck.checked) {
@@ -1596,6 +1634,34 @@ function generatePinwheelLayout() {
 
   state.pinwheelPairPool = pool2;
   renderPinwheelGrid(pool, cols, rows);
+}
+
+// Shared pool builder for HST/Hourglass — same offset logic as pinwheel.
+function buildTrianglePools() {
+  if (!state.images.length) return null;
+  updateDimState();
+  const { cols, rows, images, multiplier } = state;
+  const total = cols * rows;
+  let base = [];
+  for (let i = 0; i < multiplier; i++) base.push(...images);
+  while (base.length < total) base.push(...images);
+  let pool = base.slice(0, total);
+  if (shuffleCheck.checked) pool = shuffle([...pool]);
+  const pool2 = makePairPool(pool);
+  state.pinwheelPairPool = pool2;
+  return { pool, pool2, cols, rows };
+}
+
+function generateHstGridLayout() {
+  const t = buildTrianglePools();
+  if (!t) return;
+  renderHstGrid(t.pool, t.cols, t.rows);
+}
+
+function generateHourglassLayout() {
+  const t = buildTrianglePools();
+  if (!t) return;
+  renderHourglassGrid(t.pool, t.cols, t.rows);
 }
 
 // Canvas polygon fractions [0-1] for each (row%2, col%2) quadrant
@@ -1678,7 +1744,7 @@ async function renderPinwheelGrid(pool, cols, rows) {
     canvas.height = Math.round(cellPx * dpr);
     canvas.style.width = cellPx + 'px';
     canvas.style.height = cellPx + 'px';
-    canvas.className = 'quilt-cell pinwheel-cell';
+    canvas.className = 'pinwheel-cell';
     canvas.dataset.index = i;
     canvas.draggable = true;
     canvas.title = img.name;
@@ -1735,12 +1801,11 @@ function addPinwheelDragSwap() {
       [pool[srcIdx], pool[dropIndex]] = [pool[dropIndex], pool[srcIdx]];
       [pair[srcIdx], pair[dropIndex]] = [pair[dropIndex], pair[srcIdx]];
 
-      // Redraw only the two swapped cells
+      // Redraw only the two swapped cells using the correct draw function for the current mode
       [srcIdx, dropIndex].forEach(idx => {
         const c = quiltGrid.querySelector(`.pinwheel-cell[data-index="${idx}"]`);
         if (!c) return;
         const row = Math.floor(idx / state.cols), col = idx % state.cols;
-        const clipKey = `${row % 2},${col % 2}`;
         const ctx = c.getContext('2d');
         const cssSize = parseInt(c.style.width) || c.width;
         const dpr = window.devicePixelRatio || 1;
@@ -1748,10 +1813,173 @@ function addPinwheelDragSwap() {
         ctx.clearRect(0, 0, cssSize, cssSize);
         const img = pool[idx];
         const secImg = pair[idx] || img;
-        drawPinwheelCell(ctx, cssSize, state.pinwheelImgMap?.get(img.dataUrl), state.pinwheelImgMap?.get(secImg.dataUrl), clipKey);
+        const imgA = state.pinwheelImgMap?.get(img.dataUrl);
+        const imgB = state.pinwheelImgMap?.get(secImg.dataUrl);
+        if (state.cpLayoutMode === 'hourglass') {
+          drawHourglassCell(ctx, cssSize, imgA, imgB);
+        } else {
+          const clipKey = `${row % 2},${col % 2}`;
+          drawPinwheelCell(ctx, cssSize, imgA, imgB, clipKey);
+        }
       });
     });
   });
+}
+
+// ─── HST Grid ──────────────────────────────────────────────
+// Each cell is split diagonally. Direction alternates per cell (checkerboard of diagonals).
+// tlbr=true: TL→BR diagonal; tlbr=false: TR→BL diagonal.
+function drawHstCell(ctx, size, imgA, imgB, tlbr) {
+  const drawTri = (img, poly) => {
+    ctx.save();
+    ctx.beginPath();
+    poly.forEach(([px, py], i) => {
+      const x = px * size, y = py * size;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+    ctx.clip();
+    if (img) {
+      const s = Math.min(img.naturalWidth, img.naturalHeight);
+      ctx.drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+    } else {
+      ctx.fillStyle = '#bbb';
+      ctx.fillRect(0, 0, size, size);
+    }
+    ctx.restore();
+  };
+  if (tlbr) {
+    drawTri(imgA, [[0,0],[1,0],[1,1]]);   // upper-right
+    drawTri(imgB, [[0,0],[0,1],[1,1]]);   // lower-left
+  } else {
+    drawTri(imgA, [[0,0],[1,0],[0,1]]);   // upper-left
+    drawTri(imgB, [[1,0],[1,1],[0,1]]);   // lower-right
+  }
+}
+
+async function renderHstGrid(pool, cols, rows) {
+  state.currentPool = [...pool];
+  state.cols = cols;
+  state.rows = rows;
+
+  const cellPx = computeCellPx(cols, rows);
+  const dpr = window.devicePixelRatio || 1;
+  const pairPool = state.pinwheelPairPool;
+
+  const uniqueUrls = new Set([...pool, ...pairPool].map(i => i.dataUrl));
+  const imgMap = new Map();
+  await Promise.all([...uniqueUrls].map(url => new Promise(res => {
+    const el = new Image();
+    el.onload = el.onerror = () => { imgMap.set(url, el); res(); };
+    el.src = url;
+  })));
+
+  const grid = document.getElementById('quilt-grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cellPx}px)`;
+  grid.classList.toggle('show-seams', seamsCheck.checked);
+
+  pool.forEach((img, i) => {
+    const row = Math.floor(i / cols), col = i % cols;
+    const tlbr = (row + col) % 2 === 0;
+    const secImg = pairPool[i] || img;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(cellPx * dpr);
+    canvas.height = Math.round(cellPx * dpr);
+    canvas.style.width = cellPx + 'px';
+    canvas.style.height = cellPx + 'px';
+    canvas.className = 'pinwheel-cell';
+    canvas.dataset.index = i;
+    canvas.draggable = true;
+    canvas.title = img.name;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    drawHstCell(ctx, cellPx, imgMap.get(img.dataUrl), imgMap.get(secImg.dataUrl), tlbr);
+    grid.appendChild(canvas);
+  });
+
+  addPinwheelDragSwap();   // reuse drag-swap — same .pinwheel-cell class
+  applyBorderBinding();
+  renderCalculator();
+  gridInfo.textContent = `${cols} columns × ${rows} rows — ${pool.length} blocks (HST grid)`;
+  previewSection.style.display = 'block';
+}
+
+// ─── Hourglass ─────────────────────────────────────────────
+// Four QST triangles per cell: top/bottom = fabric A, left/right = fabric B.
+function drawHourglassCell(ctx, size, imgA, imgB) {
+  const cx = size / 2, cy = size / 2;
+  const drawTri = (img, poly) => {
+    ctx.save();
+    ctx.beginPath();
+    poly.forEach(([px, py], i) => {
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    });
+    ctx.closePath();
+    ctx.clip();
+    if (img) {
+      const s = Math.min(img.naturalWidth, img.naturalHeight);
+      ctx.drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+    } else {
+      ctx.fillStyle = '#bbb';
+      ctx.fillRect(0, 0, size, size);
+    }
+    ctx.restore();
+  };
+  // Top triangle (fabric A)
+  drawTri(imgA, [[0,0],[size,0],[cx,cy]]);
+  // Bottom triangle (fabric A)
+  drawTri(imgA, [[size,size],[0,size],[cx,cy]]);
+  // Right triangle (fabric B)
+  drawTri(imgB, [[size,0],[size,size],[cx,cy]]);
+  // Left triangle (fabric B)
+  drawTri(imgB, [[0,size],[0,0],[cx,cy]]);
+}
+
+async function renderHourglassGrid(pool, cols, rows) {
+  state.currentPool = [...pool];
+  state.cols = cols;
+  state.rows = rows;
+
+  const cellPx = computeCellPx(cols, rows);
+  const dpr = window.devicePixelRatio || 1;
+  const pairPool = state.pinwheelPairPool;
+
+  const uniqueUrls = new Set([...pool, ...pairPool].map(i => i.dataUrl));
+  const imgMap = new Map();
+  await Promise.all([...uniqueUrls].map(url => new Promise(res => {
+    const el = new Image();
+    el.onload = el.onerror = () => { imgMap.set(url, el); res(); };
+    el.src = url;
+  })));
+
+  const grid = document.getElementById('quilt-grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cellPx}px)`;
+  grid.classList.toggle('show-seams', seamsCheck.checked);
+
+  pool.forEach((img, i) => {
+    const secImg = pairPool[i] || img;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(cellPx * dpr);
+    canvas.height = Math.round(cellPx * dpr);
+    canvas.style.width = cellPx + 'px';
+    canvas.style.height = cellPx + 'px';
+    canvas.className = 'pinwheel-cell';
+    canvas.dataset.index = i;
+    canvas.draggable = true;
+    canvas.title = img.name;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    drawHourglassCell(ctx, cellPx, imgMap.get(img.dataUrl), imgMap.get(secImg.dataUrl));
+    grid.appendChild(canvas);
+  });
+
+  addPinwheelDragSwap();
+  applyBorderBinding();
+  renderCalculator();
+  gridInfo.textContent = `${cols} columns × ${rows} rows — ${pool.length} blocks (hourglass)`;
+  previewSection.style.display = 'block';
 }
 
 async function generatePinwheelThumbnail(pool, cols, rows) {
@@ -1881,7 +2109,9 @@ function handleJrFiles(fileList) {
 function jrRebuildDimensionOptions() {
   const jr = state.jellyRoll;
   const total = jr.strips.length * jr.multiplier;
-  const pairs = getFactorPairs(total);
+  // Block count = how many complete blocks fit given strips per block
+  const blockCount = Math.max(1, Math.floor(total / jr.stripsPerBlock));
+  const pairs = getFactorPairs(blockCount);
   const sel = document.getElementById('jr-dimension-select');
   sel.innerHTML = '';
   pairs.forEach(([cols, rows]) => {
@@ -1894,7 +2124,7 @@ function jrRebuildDimensionOptions() {
   sel.value = `${best[0]}x${best[1]}`;
   jr.cols = best[0];
   jr.rows = best[1];
-  document.getElementById('jr-dim-label').textContent = `= ${total} blocks total`;
+  document.getElementById('jr-dim-label').textContent = `= ${blockCount} blocks total`;
 }
 
 document.getElementById('jr-dimension-select').addEventListener('change', () => {
@@ -1919,22 +2149,135 @@ document.getElementById('jr-mult-slider').addEventListener('input', e => {
 document.getElementById('jr-strips-slider').addEventListener('input', e => {
   state.jellyRoll.stripsPerBlock = parseInt(e.target.value, 10);
   document.getElementById('jr-strips-label').textContent = `${state.jellyRoll.stripsPerBlock} strips per block`;
+  if (state.jellyRoll.strips.length) jrRebuildDimensionOptions();
 });
 
+// ── JR Pattern Presets ──
+const JR_PRESETS = {
+  '2nd-easiest': {
+    stripsPerBlock: 2,
+    hint: 'Pairs strips into numbered blocks sewn lengthwise. Drag to rearrange which fabrics go in each pair before you cut.',
+    guideAnchor: 'pattern-2nd-easiest',
+  },
+  'easiest-throw': {
+    stripsPerBlock: 1,
+    hint: 'Shows all strips in sewing sequence. Numbers show the order to sew them end-to-end into one continuous strip.',
+    guideAnchor: 'pattern-easiest-throw',
+  },
+};
+
+// Track which preset button is currently active
+let activeJrPreset = null;
+
+function activateJrPreset(presetKey) {
+  const preset = JR_PRESETS[presetKey];
+  activeJrPreset = presetKey;
+
+  // Update active-mode styling on preset buttons
+  document.getElementById('jr-2nd-easiest-btn').classList.toggle('active-mode', presetKey === '2nd-easiest');
+  document.getElementById('jr-easiest-throw-btn').classList.toggle('active-mode', presetKey === 'easiest-throw');
+
+  // Update strips-per-block
+  state.jellyRoll.stripsPerBlock = preset.stripsPerBlock;
+  const slider = document.getElementById('jr-strips-slider');
+  slider.value = Math.max(parseInt(slider.min, 10), preset.stripsPerBlock);
+  document.getElementById('jr-strips-label').textContent =
+    preset.stripsPerBlock === 1 ? '1 strip per block' : `${preset.stripsPerBlock} strips per block`;
+
+  // Set grid dimensions to match the preset's logical block count:
+  //   2nd Easiest → one block per pair  (floor(total / 2) blocks)
+  //   Easiest Throw → one block per strip (total blocks)
+  if (state.jellyRoll.strips.length) {
+    const total = state.jellyRoll.strips.length * state.jellyRoll.multiplier;
+    const blockCount = presetKey === '2nd-easiest' ? Math.floor(total / 2) : total;
+    const pairs = getFactorPairs(blockCount);
+    const best = chooseBestDefault(pairs);
+    state.jellyRoll.cols = best[0];
+    state.jellyRoll.rows = best[1];
+
+    // Rebuild dimension select to show the preset-appropriate options
+    const sel = document.getElementById('jr-dimension-select');
+    sel.innerHTML = '';
+    pairs.forEach(([c, r]) => {
+      const opt = document.createElement('option');
+      opt.value = `${c}x${r}`;
+      opt.textContent = `${c} × ${r}  (${c} cols, ${r} rows)`;
+      sel.appendChild(opt);
+    });
+    sel.value = `${best[0]}x${best[1]}`;
+    document.getElementById('jr-dim-label').textContent = `= ${blockCount} blocks total`;
+  }
+
+  // Show hint + guide link
+  document.getElementById('jr-preset-hint').textContent = preset.hint;
+  document.getElementById('jr-guide-btn').href = 'guide.html#' + preset.guideAnchor;
+  document.getElementById('jr-preset-info').style.display = 'block';
+
+  // Render if strips are loaded
+  if (state.jellyRoll.strips.length) {
+    const layoutMode = presetKey === 'easiest-throw' ? 'easiestthrow'
+                     : presetKey === '2nd-easiest'   ? '2ndeasiest'
+                     : 'railfence';
+    generateJrLayout(layoutMode);
+    setTimeout(addJrSewingStepBadges, 50);
+  }
+}
+
+document.getElementById('jr-2nd-easiest-btn').addEventListener('click', () => activateJrPreset('2nd-easiest'));
+document.getElementById('jr-easiest-throw-btn').addEventListener('click', () => activateJrPreset('easiest-throw'));
+
+function addJrSewingStepBadges() {
+  document.querySelectorAll('.sewing-step').forEach(b => b.remove());
+  if (!activeJrPreset) return;
+  document.querySelectorAll('#jr-quilt-grid .jr-cell').forEach((cell, i) => {
+    if (cell.style.position !== 'relative') cell.style.position = 'relative';
+    const badge = document.createElement('span');
+    badge.className = 'sewing-step';
+    badge.textContent = i + 1;
+    cell.appendChild(badge);
+  });
+}
+
 // ── JR Layout Buttons ──
-document.getElementById('jr-railfence-btn').addEventListener('click', () => generateJrLayout('railfence'));
-document.getElementById('jr-optimize-btn').addEventListener('click', jrOptimizeLayout);
-document.getElementById('jr-checker-btn').addEventListener('click', jrCheckerLayout);
-document.getElementById('jr-hue-diag-btn').addEventListener('click', jrHueDiagonalLayout);
+// Clear preset selection (and badges) when a manual layout button is used.
+function clearJrPreset() {
+  activeJrPreset = null;
+  document.getElementById('jr-2nd-easiest-btn').classList.remove('active-mode');
+  document.getElementById('jr-easiest-throw-btn').classList.remove('active-mode');
+  document.getElementById('jr-preset-info').style.display = 'none';
+  document.querySelectorAll('.sewing-step').forEach(b => b.remove());
+  // Restore dimension select to normal strip-based options
+  if (state.jellyRoll.strips.length) jrRebuildDimensionOptions();
+}
+document.getElementById('jr-railfence-btn').addEventListener('click', () => { clearJrPreset(); generateJrLayout('railfence'); });
+document.getElementById('jr-optimize-btn').addEventListener('click', () => { clearJrPreset(); jrOptimizeLayout(); });
+document.getElementById('jr-checker-btn').addEventListener('click', () => { clearJrPreset(); jrCheckerLayout(); });
+document.getElementById('jr-hue-diag-btn').addEventListener('click', () => { clearJrPreset(); jrHueDiagonalLayout(); });
 document.getElementById('jr-shuffle-btn').addEventListener('click', () => {
+  clearJrPreset();
   document.getElementById('jr-shuffle-check').checked = true;
   generateJrLayout(state.jellyRoll.layoutMode);
 });
-document.getElementById('jr-stringpinwheel-btn').addEventListener('click', () => generateJrLayout('stringpinwheel'));
+document.getElementById('jr-stringpinwheel-btn').addEventListener('click', () => { clearJrPreset(); generateJrLayout('stringpinwheel'); });
+document.getElementById('jr-jellyrainbow-btn').addEventListener('click', () => { clearJrPreset(); generateJrLayout('jellyrainbow'); });
 
 function generateJrLayout(mode) {
   const jr = state.jellyRoll;
   if (!jr.strips.length) return;
+
+  // Strip sequence mode: show each strip as a full-width horizontal band
+  if (mode === 'easiestthrow') {
+    let pool = [];
+    for (let i = 0; i < jr.multiplier; i++) pool.push(...jr.strips);
+    if (document.getElementById('jr-shuffle-check').checked) pool = shuffle([...pool]);
+    const blocks = pool.map(strip => ({ strips: [strip] }));
+    jr.currentBlocks = blocks;
+    jr.layoutMode = mode;
+    jr.cols = 1;
+    jr.rows = blocks.length;
+    renderJrStripSequence(blocks);
+    return;
+  }
 
   // Read current dimension selection
   const selVal = document.getElementById('jr-dimension-select').value;
@@ -1970,6 +2313,10 @@ function generateJrLayout(mode) {
 
   if (mode === 'railfence') {
     renderJrRailFenceGrid(blocks, cols, rows);
+  } else if (mode === '2ndeasiest') {
+    renderJr2ndEasiestGrid(blocks, cols, rows);
+  } else if (mode === 'jellyrainbow') {
+    renderJrJellyRainbowGrid(blocks, cols, rows);
   } else {
     renderJrStringPinwheelGrid(blocks, cols, rows);
   }
@@ -1980,6 +2327,9 @@ function jrReRenderIfActive() {
   const { currentBlocks, cols, rows, layoutMode } = state.jellyRoll;
   if (!currentBlocks.length) return;
   if (layoutMode === 'railfence') renderJrRailFenceGrid(currentBlocks, cols, rows);
+  else if (layoutMode === '2ndeasiest') renderJr2ndEasiestGrid(currentBlocks, cols, rows);
+  else if (layoutMode === 'jellyrainbow') renderJrJellyRainbowGrid(currentBlocks, cols, rows);
+  else if (layoutMode === 'easiestthrow') renderJrStripSequence(currentBlocks);
   else renderJrStringPinwheelGrid(currentBlocks, cols, rows);
 }
 
@@ -2059,6 +2409,102 @@ function renderJrRailFenceGrid(blocks, cols, rows) {
   renderJrCalculator();
 }
 
+// ── 2nd Easiest Jelly Roll Render ──
+// All blocks show horizontal strip pairs (no alternating orientation like rail fence).
+function renderJr2ndEasiestGrid(blocks, cols, rows) {
+  const jr = state.jellyRoll;
+  const cellPx = computeJrCellPx(cols, rows);
+  jr.lastCellPx = cellPx;
+
+  const grid = document.getElementById('jr-quilt-grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cellPx}px)`;
+  grid.style.width = 'fit-content';
+
+  const showSeams = document.getElementById('jr-seams-check').checked;
+  grid.className = 'quilt-grid ' + (showSeams ? 'show-seams' : 'no-seams');
+
+  blocks.forEach((block, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'jr-cell rail-block rail-h';
+    cell.style.width = cellPx + 'px';
+    cell.style.height = cellPx + 'px';
+    cell.dataset.index = i;
+
+    block.strips.forEach(strip => {
+      const stripEl = document.createElement('div');
+      stripEl.className = 'rail-strip';
+      const img = document.createElement('img');
+      img.src = strip.dataUrl;
+      img.alt = '';
+      img.draggable = false;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      stripEl.appendChild(img);
+      cell.appendChild(stripEl);
+    });
+
+    grid.appendChild(cell);
+  });
+
+  addJrDragSwap();
+  applyJrBorderBinding();
+
+  document.getElementById('jr-preview-section').style.display = 'block';
+  document.getElementById('jr-grid-info').textContent =
+    `${cols} columns × ${rows} rows — ${blocks.length} paired blocks (2nd easiest)`;
+  document.getElementById('jr-calc-section').style.display = 'block';
+  renderJrCalculator();
+}
+
+// ── Strip Sequence Render (Easiest Throw) ──
+function renderJrStripSequence(blocks) {
+  const jr = state.jellyRoll;
+
+  const grid = document.getElementById('jr-quilt-grid');
+  grid.innerHTML = '';
+
+  const showSeams = document.getElementById('jr-seams-check').checked;
+  grid.className = 'quilt-grid ' + (showSeams ? 'show-seams' : 'no-seams');
+
+  // Full available width for each strip band
+  const previewEl = document.getElementById('jr-preview-section');
+  const availW = Math.max(Math.min(previewEl.offsetWidth - 32, 800), 200);
+  const stripH = Math.max(Math.round(availW / 10), 36); // wide flat bands
+
+  grid.style.gridTemplateColumns = `${availW}px`;
+  grid.style.width = availW + 'px';
+  jr.lastCellPx = stripH;
+
+  blocks.forEach((block, i) => {
+    const strip = block.strips[0];
+
+    const cell = document.createElement('div');
+    cell.className = 'jr-cell strip-seq-cell';
+    cell.style.width = availW + 'px';
+    cell.style.height = stripH + 'px';
+    cell.style.position = 'relative';
+    cell.dataset.index = i;
+
+    const img = document.createElement('img');
+    img.src = strip.dataUrl;
+    img.alt = '';
+    img.draggable = false;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+
+    cell.appendChild(img);
+    grid.appendChild(cell);
+  });
+
+  addJrDragSwap();
+  applyJrBorderBinding();
+
+  document.getElementById('jr-preview-section').style.display = 'block';
+  document.getElementById('jr-grid-info').textContent =
+    `${blocks.length} strips — sew end-to-end in the order shown`;
+  document.getElementById('jr-calc-section').style.display = 'block';
+  renderJrCalculator();
+}
+
 // ── String Pinwheel Render ──
 async function renderJrStringPinwheelGrid(blocks, cols, rows) {
   const jr = state.jellyRoll;
@@ -2116,35 +2562,180 @@ async function renderJrStringPinwheelGrid(blocks, cols, rows) {
 }
 
 function drawStringPinwheelBlock(ctx, size, strips, imgMap, isFlipped) {
+  const angle = isFlipped ? -Math.PI / 4 : Math.PI / 4;
+  // Make diag large enough to guarantee all 4 corners of the cell are covered
+  const diag = size * Math.sqrt(2) + 8;
+  const half = diag / 2;
+  const n = strips.length;
+
+  // Helper: compute the floor/ceil-aligned x range for strip i
+  const stripX = i => ({
+    x0: Math.floor(-half + i * diag / n),
+    x1: Math.ceil(-half + (i + 1) * diag / n),
+  });
+
+  // Pass 1: solid-color fill for every strip band — guarantees full coverage, no bare corners
   ctx.save();
-  ctx.beginPath();
-  ctx.rect(0, 0, size, size);
-  ctx.clip();
+  ctx.beginPath(); ctx.rect(0, 0, size, size); ctx.clip();
   ctx.translate(size / 2, size / 2);
-  ctx.rotate(isFlipped ? -Math.PI / 4 : Math.PI / 4);
-  // +2px buffer so floating-point can't leave bare canvas corners unpainted
-  const diag = size * Math.sqrt(2) + 2;
-  const sw = diag / strips.length;
+  ctx.rotate(angle);
   strips.forEach((strip, i) => {
-    const x = -diag / 2 + i * sw;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(x, -diag / 2, sw, diag);
-    ctx.clip();
+    const { x0, x1 } = stripX(i);
+    const c = strip.color || [180, 180, 180];
+    ctx.fillStyle = `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`;
+    ctx.fillRect(x0, -half, x1 - x0, diag);
+  });
+  ctx.restore();
+
+  // Pass 2: draw fabric images on top of the solid base
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, size, size); ctx.clip();
+  ctx.translate(size / 2, size / 2);
+  ctx.rotate(angle);
+  strips.forEach((strip, i) => {
     const imgEl = imgMap.get(strip.dataUrl);
-    if (imgEl) {
-      const iw = imgEl.naturalWidth, ih = imgEl.naturalHeight;
-      const scale = Math.max(sw / iw, diag / ih);
-      const dw = iw * scale, dh = ih * scale;
-      ctx.drawImage(imgEl, x + (sw - dw) / 2, -diag / 2 + (diag - dh) / 2, dw, dh);
-    } else {
-      const c = strip.color || [180, 180, 180];
-      ctx.fillStyle = `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`;
-      ctx.fillRect(x, -diag / 2, sw, diag);
-    }
+    if (!imgEl) return;
+    const { x0, x1 } = stripX(i);
+    const sw = x1 - x0;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x0, -half, sw, diag); ctx.clip();
+    const iw = imgEl.naturalWidth, ih = imgEl.naturalHeight;
+    // Scale so the image covers the full diagonal height AND the strip width
+    const scale = Math.max(sw / iw, diag / ih);
+    const dw = iw * scale, dh = ih * scale;
+    ctx.drawImage(imgEl, x0 + (sw - dw) / 2, -half + (diag - dh) / 2, dw, dh);
     ctx.restore();
   });
   ctx.restore();
+}
+
+// ── JR Jelly Rainbow ──────────────────────────────────────
+// HST layout: block split by one diagonal (alternating TL-BR / TR-BL across the grid).
+// Each triangle draws diagonal strip bands at 45° — matching the cut-and-rotate
+// construction where horizontal strip-sets are cut diagonally then reassembled so
+// the strips appear at 45° parallel to the hypotenuse in each final triangle.
+// tlbr=true: TL→BR diagonal; tlbr=false: TR→BL diagonal.
+function drawJellyRainbowBlock(ctx, size, stripsA, stripsB, imgMap, tlbr) {
+  const half = size / 2;
+
+  // Draw strip bands rotated to `angle`, clipped to `poly`.
+  // Bands are drawn in the rotated coordinate space as horizontal stripes,
+  // which appear at 45° in the final block (parallel to hypotenuse).
+  const drawDiagonalBands = (strips, poly, angle) => {
+    ctx.save();
+    ctx.beginPath();
+    poly.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+    ctx.closePath();
+    ctx.clip();
+    ctx.save();
+    ctx.translate(half, half);
+    ctx.rotate(angle);
+    const diag = size * Math.SQRT2 + 4; // diagonal of the square + buffer
+    const n = strips.length;
+    strips.forEach((strip, i) => {
+      const y0 = Math.floor(-diag / 2 + i * diag / n);
+      const h = Math.ceil(diag / n);
+      const imgEl = imgMap.get(strip.dataUrl);
+      if (imgEl) {
+        const s = Math.min(imgEl.naturalWidth, imgEl.naturalHeight);
+        ctx.drawImage(imgEl, (imgEl.naturalWidth-s)/2, (imgEl.naturalHeight-s)/2, s, s,
+                      -diag/2, y0, diag, h);
+      } else {
+        const c = strip.color || [180, 180, 180];
+        ctx.fillStyle = `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`;
+        ctx.fillRect(-diag / 2, y0, diag, h);
+      }
+    });
+    ctx.restore();
+    ctx.restore();
+  };
+
+  if (tlbr) {
+    // TL→BR cut: upper-right triangle gets A (strips parallel to TL-BR = -45°)
+    //            lower-left triangle gets B (strips at +45°, from perpendicular block B)
+    drawDiagonalBands(stripsA, [[0,0],[size,0],[size,size]], -Math.PI / 4);
+    drawDiagonalBands(stripsB, [[0,0],[0,size],[size,size]],  Math.PI / 4);
+  } else {
+    // TR→BL cut: upper-left gets A (+45°), lower-right gets B (-45°)
+    drawDiagonalBands(stripsA, [[0,0],[size,0],[0,size]],    Math.PI / 4);
+    drawDiagonalBands(stripsB, [[size,0],[size,size],[0,size]], -Math.PI / 4);
+  }
+}
+
+async function renderJrJellyRainbowGrid(blocks, cols, rows) {
+  const jr = state.jellyRoll;
+  const cellPx = computeJrCellPx(cols, rows);
+  jr.lastCellPx = cellPx;
+
+  const uniqueUrls = new Set();
+  blocks.forEach(b => b.strips.forEach(s => uniqueUrls.add(s.dataUrl)));
+  const imgMap = new Map();
+  await Promise.all([...uniqueUrls].map(url => new Promise(res => {
+    const el = new Image();
+    el.onload = () => { imgMap.set(url, el); res(); };
+    el.onerror = () => res();
+    el.src = url;
+  })));
+
+  const grid = document.getElementById('jr-quilt-grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cellPx}px)`;
+  grid.style.width = 'fit-content';
+
+  const showSeams = document.getElementById('jr-seams-check').checked;
+  grid.className = 'quilt-grid ' + (showSeams ? 'show-seams' : 'no-seams');
+
+  // Sort blocks by average hue so darks/lights/mediums cluster into groups.
+  // Only sort on initial generate (shuffle=false); drag-swap preserves user order.
+  if (!document.getElementById('jr-shuffle-check').checked) {
+    const hueOf = strips => {
+      let total = 0;
+      strips.forEach(s => {
+        const [r, g, bl] = (s.color || [128, 128, 128]).map(v => v / 255);
+        const max = Math.max(r, g, bl), min = Math.min(r, g, bl), d = max - min;
+        if (d === 0) return;
+        let h = max === r ? ((g - bl) / d + 6) % 6
+               : max === g ? (bl - r) / d + 2
+               : (r - g) / d + 4;
+        total += h * 60;
+      });
+      return total / strips.length;
+    };
+    blocks.sort((a, b) => hueOf(a.strips) - hueOf(b.strips));
+  }
+
+  // Pair each block with the block halfway around the sorted order for color contrast.
+  const pairOffset = Math.ceil(blocks.length / 2);
+
+  blocks.forEach((block, i) => {
+    const row = Math.floor(i / cols), col = i % cols;
+    // Checkerboard of diagonal directions — creates the interlocking rainbow effect
+    const tlbr = (row + col) % 2 === 0;
+    const pairBlock = blocks[(i + pairOffset) % blocks.length];
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'jr-cell';
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(cellPx * dpr);
+    canvas.height = Math.round(cellPx * dpr);
+    canvas.style.width = cellPx + 'px';
+    canvas.style.height = cellPx + 'px';
+    canvas.dataset.index = i;
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    drawJellyRainbowBlock(ctx, cellPx, block.strips, pairBlock.strips, imgMap, tlbr);
+    grid.appendChild(canvas);
+  });
+
+  addJrDragSwap();
+  applyJrBorderBinding();
+
+  document.getElementById('jr-preview-section').style.display = 'block';
+  document.getElementById('jr-grid-info').textContent =
+    `${cols} columns × ${rows} rows — ${blocks.length} blocks (jelly rainbow)`;
+  document.getElementById('jr-calc-section').style.display = 'block';
+  renderJrCalculator();
 }
 
 // ── JR Drag-to-Swap ──
@@ -2187,6 +2778,8 @@ function addJrDragSwap() {
       const blocks = state.jellyRoll.currentBlocks;
       [blocks[srcIdx], blocks[dropIndex]] = [blocks[dropIndex], blocks[srcIdx]];
       jrReRenderIfActive();
+      // Re-apply sewing step badges after swap if a preset is active
+      if (activeJrPreset) setTimeout(addJrSewingStepBadges, 50);
     });
   });
 }
