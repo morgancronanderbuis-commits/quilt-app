@@ -1,7 +1,7 @@
 // ─── State ────────────────────────────────────────────────
 const state = {
   images: [],         // Array of { name, dataUrl, color, phash }
-  multiplier: 1,
+  multiplier: 2,
   cols: 0,
   rows: 0,
   currentPool: [],
@@ -147,10 +147,14 @@ async function loadSampleInto(btn, handler, dir, prefix) {
   }
 }
 
-document.getElementById('load-sample-btn').addEventListener('click', e =>
-  loadSampleInto(e.currentTarget, handleFiles, 'Tilda Sanctuary Charm Pack 5.5in', 'quilt_tile'));
-document.getElementById('jr-load-sample-btn').addEventListener('click', e =>
-  loadSampleInto(e.currentTarget, handleJrFiles, 'CottageCore Jelly Roll', 'stripe'));
+document.getElementById('load-sample-btn').addEventListener('click', e => {
+  e.stopPropagation(); // don't let the drop-zone's click handler open the file dialog
+  loadSampleInto(e.currentTarget, handleFiles, 'Tilda Sanctuary Charm Pack 5.5in', 'quilt_tile');
+});
+document.getElementById('jr-load-sample-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  loadSampleInto(e.currentTarget, handleJrFiles, 'CottageCore Jelly Roll', 'stripe');
+});
 
 function handleFiles(fileList) {
   const files = [...fileList].filter(f => f.type.startsWith('image/'));
