@@ -187,7 +187,7 @@ function clearImages() {
 function onImagesUpdated() {
   const count = state.images.length;
   imageCount.textContent = `${count} image${count !== 1 ? 's' : ''} loaded`;
-  clearBtn.style.display = count > 0 ? 'inline-block' : 'none';
+  // #clear-btn stays hidden (a JS helper); the compact bar's "Replace All" is the visible control
 
   if (count > 0) {
     document.getElementById('drop-zone').style.display = 'none';
@@ -2133,7 +2133,7 @@ function handleJrFiles(fileList) {
     state.jellyRoll.strips.push(...newStrips);
     const count = state.jellyRoll.strips.length;
     jrImageCount.textContent = `${count} strip${count !== 1 ? 's' : ''} loaded`;
-    jrClearBtn.style.display = 'inline-block';
+    // #jr-clear-btn stays hidden (a JS helper); the compact bar's "Replace All" is the visible control
     document.getElementById('jr-drop-zone').style.display = 'none';
     const compact = document.getElementById('jr-upload-compact');
     compact.style.display = 'flex';
