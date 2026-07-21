@@ -116,6 +116,42 @@ dropZone.addEventListener('drop', e => {
 fileInput.addEventListener('change', () => handleFiles(fileInput.files));
 clearBtn.addEventListener('click', clearImages);
 
+// ── Bundled sample fabrics ──
+// Fetch the sample images shipped with the app and hand them to the normal
+// upload handler as File objects, so "Load a sample …" behaves like a real upload.
+async function fetchSampleFiles(dir, prefix, count) {
+  const files = [];
+  for (let i = 1; i <= count; i++) {
+    const name = `${prefix}_${String(i).padStart(2, '0')}.png`;
+    const res = await fetch(encodeURI(`sample files/${dir}/${name}`));
+    if (!res.ok) throw new Error(`Failed to load ${name} (${res.status})`);
+    const blob = await res.blob();
+    files.push(new File([blob], name, { type: blob.type || 'image/png' }));
+  }
+  return files;
+}
+
+async function loadSampleInto(btn, handler, dir, prefix) {
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Loading sample…';
+  try {
+    handler(await fetchSampleFiles(dir, prefix, 20));
+    // handler swaps the drop-zone for the compact bar, so this button is hidden anyway
+    btn.textContent = original;
+    btn.disabled = false;
+  } catch (err) {
+    console.error(err);
+    btn.textContent = 'Could not load — try again';
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('load-sample-btn').addEventListener('click', e =>
+  loadSampleInto(e.currentTarget, handleFiles, 'Tilda Sanctuary Charm Pack 5.5in', 'quilt_tile'));
+document.getElementById('jr-load-sample-btn').addEventListener('click', e =>
+  loadSampleInto(e.currentTarget, handleJrFiles, 'CottageCore Jelly Roll', 'stripe'));
+
 function handleFiles(fileList) {
   const files = [...fileList].filter(f => f.type.startsWith('image/'));
   if (!files.length) return;
